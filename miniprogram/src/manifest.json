@@ -1,0 +1,34 @@
+{
+  "name": "RexMatch",
+  "appid": "",
+  "description": "交友匹配平台",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "用于推荐附近的人"
+      }
+    }
+  },
+  "h5": {
+    "devServer": {
+      "port": 8080,
+      "proxy": {
+        "/api": {
+          "target": "http://localhost:9000",
+          "changeOrigin": true
+        }
+      }
+    }
+  }
+}
