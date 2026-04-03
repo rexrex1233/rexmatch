@@ -71,7 +71,7 @@
 
       <view class="form-row">
         <text class="form-label">城市</text>
-        <picker class="form-picker" mode="region" @change="onCityChange">
+        <picker class="form-picker" mode="selector" :range="cityOptions" @change="onCityChange">
           <view class="form-right">
             <text :class="['form-value', { placeholder: !form.city }]">
               {{ form.city || '选择常驻城市' }}
@@ -182,6 +182,13 @@ const isFromLogin = ref(false)
 
 // 选择器配置数据
 const heightOptions = Array.from({ length: 81 }, (_, i) => i + 140) // 140-220cm
+const cityOptions = [
+  '北京', '上海', '广州', '深圳', '成都', '杭州', '重庆', '武汉', '西安', '苏州', 
+  '天津', '南京', '长沙', '郑州', '东莞', '青岛', '沈阳', '合肥', '佛山', '大连', 
+  '福州', '厦门', '哈尔滨', '济南', '温州', '长春', '石家庄', '常州', '泉州', '南宁', 
+  '贵阳', '南昌', '南通', '金华', '徐州', '太原', '嘉兴', '烟台', '惠州', '保定', 
+  '台州', '中山', '绍兴', '乌鲁木齐', '潍坊', '兰州', '海外', '其他'
+]
 const educationOptions = ['高中及以下', '大专', '本科', '硕士', '博士']
 const occupationOptions = [
   '在校学生', 'IT/互联网', '金融/投资', '医疗/健康', 
@@ -282,16 +289,7 @@ function onBirthdayChange(e: any) {
 }
 
 function onCityChange(e: any) {
-  // mode="region" e.detail.value 是一个数组 ['省', '市', '区']
-  const val = e.detail.value
-  if (Array.isArray(val) && val.length >= 2) {
-    // 省市相同（如直辖市 北京 北京市），可以只取其一
-    if (val[0] === val[1] || val[1].includes(val[0])) {
-      form.city = val[1]
-    } else {
-      form.city = `${val[0]} ${val[1]}`
-    }
-  }
+  form.city = cityOptions[e.detail.value]
 }
 
 function onHeightChange(e: any) {
