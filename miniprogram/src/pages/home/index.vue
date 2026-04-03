@@ -30,17 +30,35 @@
           :scroll-y="showDetail" 
           :show-scrollbar="false"
         >
-          <!-- 英雄区域 (照片) -->
+          <!-- 英雄区域 (照片 + 渐变) -->
           <view 
             class="hero-area" 
-            :style="{ height: showDetail ? '65vh' : '100%' }"
             @touchstart="onHeroTouchStart"
             @touchmove="onHeroTouchMove"
             @touchend="onHeroTouchEnd"
-            @tap="toggleDetail"
+            @tap="!showDetail && toggleDetail()"
           >
-            <image class="hero-img" :src="currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
-            <view class="hero-overlay"></view>
+            <image class="hero-bg" :src="currentCard.photos?.[0]?.url || currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
+            <view class="hero-fade"></view>
+            
+            <!-- 用户头部信息 (悬浮在渐变上) -->
+            <view class="hero-user-info">
+              <image class="hu-avatar" :src="currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
+              <view class="hu-details">
+                <view class="hu-name-row">
+                  <text class="hu-name">{{ currentCard.nickname }}</text>
+                  <view class="hu-verified"><text>✔</text></view>
+                </view>
+                <view class="hu-meta">
+                  <view class="online-dot" v-if="currentCard.is_online"></view>
+                  <text v-if="currentCard.is_online">在线</text>
+                  <text class="divider" v-if="currentCard.is_online">|</text>
+                  <text v-if="currentCard.age">{{ currentCard.age }}岁</text>
+                  <text class="divider" v-if="currentCard.age && currentCard.city">·</text>
+                  <text class="text-ellipsis" style="max-width: 180rpx;" v-if="currentCard.city">{{ currentCard.city }}</text>
+                </view>
+              </view>
+            </view>
 
             <!-- 滑动标签 -->
             <view class="swipe-tag like-tag" :style="{ opacity: likeOp }"><text>LIKE</text></view>
@@ -50,123 +68,110 @@
             <view class="close-btn" v-if="showDetail" @tap.stop="toggleDetail" :style="{ top: (statusBarHeight + 10) + 'px' }">
               <text class="cb-icon">↓</text>
             </view>
-
-            <!-- 照片数量指示器 -->
-            <view class="photo-num" v-if="!showDetail && currentCard.photos?.length > 1">
-              <text>📷 {{ currentCard.photos.length }}</text>
-            </view>
-
-            <!-- 卡片信息区 -->
-            <view class="hero-info" :class="{ 'expanded-info': showDetail }">
-              <view class="hi-name-row">
-                <text class="hi-name">{{ currentCard.nickname }}</text>
-                <view class="hi-age" v-if="currentCard.age">{{ currentCard.age }}</view>
-                <view class="hi-online" v-if="currentCard.is_online">在线</view>
-              </view>
-              
-              <view class="hi-meta">
-                <view class="hi-tag" v-if="currentCard.city"><text>📍</text>{{ currentCard.city }}</view>
-                <view class="hi-tag" v-if="currentCard.occupation"><text>💼</text>{{ currentCard.occupation }}</view>
-                <view class="hi-tag" v-if="currentCard.education"><text>🎓</text>{{ currentCard.education }}</view>
-              </view>
-
-              <view class="hi-compat" v-if="!showDetail && currentCard.compatibility && currentCard.compatibility.score > 0">
-                <text class="compat-icon">✨</text>
-                <text class="compat-txt">{{ currentCard.compatibility.score }} 项高度契合</text>
-              </view>
-
-              <view class="hi-hint" v-if="!showDetail">
-                <view class="hint-arrow">ˆ</view>
-                <text>点击或上滑查看详细资料</text>
-              </view>
-            </view>
           </view>
 
-          <!-- 详细内容区 (仅展开时显示) -->
-          <view class="detail-content" v-if="showDetail">
+          <!-- 资料内容区 (纯白背景) -->
+          <view class="profile-body" @tap="!showDetail && toggleDetail()">
             
-            <!-- 契合度详情 -->
-            <view class="d-card" v-if="currentCard.compatibility && currentCard.compatibility.score > 0">
-              <view class="compat-box">
-                <text class="cb-title">✨ 你们有 {{ currentCard.compatibility.score }} 项共同点</text>
-                <view class="cb-tags" v-if="currentCard.compatibility.shared_interests">
-                  <text class="cb-tag" v-for="(t, i) in currentCard.compatibility.shared_interests" :key="i">{{ t }}</text>
-                </view>
+            <!-- 契合度推荐 -->
+            <view class="pb-section pb-compat" v-if="currentCard.compatibility && currentCard.compatibility.score > 0">
+              <text class="compat-text">根据你的偏好 </text>
+              <text class="compat-highlight">{{ currentCard.compatibility.shared_interests?.join('、') || '多个共同点' }}</text>
+              <text class="compat-text"> 推荐</text>
+            </view>
+
+            <!-- 兴趣标签 -->
+            <view class="pb-section pb-tags" v-if="currentCard.interests?.length">
+              <view 
+                class="tag-capsule" 
+                :class="i < 3 ? 'gradient-tag' : 'plain-tag'" 
+                v-for="(t, i) in currentCard.interests" 
+                :key="i"
+              >
+                <text class="tag-icon" v-if="i === 0 && i < 3">🎯</text>
+                <text class="tag-icon" v-if="i === 1 && i < 3">✨</text>
+                <text class="tag-icon" v-if="i === 2 && i < 3">🌿</text>
+                <text>{{ t }}</text>
               </view>
             </view>
 
             <!-- 关于我 -->
-            <view class="d-card" v-if="currentCard.bio">
-              <text class="d-title">关于我</text>
-              <text class="d-bio">{{ currentCard.bio }}</text>
+            <view class="pb-section pb-bio" v-if="currentCard.bio">
+              <text class="section-title">关于我</text>
+              <text class="bio-text" :class="{'line-clamp-3': !showDetail}">{{ currentCard.bio }}</text>
             </view>
 
-            <!-- 基本资料 -->
-            <view class="d-card">
-              <text class="d-title">基本资料</text>
-              <view class="d-grid">
-                <view class="d-item" v-if="currentCard.height"><text class="d-icon">📏</text><text>{{ currentCard.height }} cm</text></view>
-                <view class="d-item" v-if="currentCard.education"><text class="d-icon">🎓</text><text>{{ currentCard.education }}</text></view>
-                <view class="d-item" v-if="currentCard.occupation"><text class="d-icon">💼</text><text>{{ currentCard.occupation }}</text></view>
-                <view class="d-item" v-if="currentCard.city"><text class="d-icon">📍</text><text>{{ currentCard.city }}</text></view>
-                <view class="d-item" v-if="currentCard.gender === 1"><text class="d-icon">♂</text><text>男生</text></view>
-                <view class="d-item" v-if="currentCard.gender === 2"><text class="d-icon">♀</text><text>女生</text></view>
+            <!-- 详细资料 (展开后显示) -->
+            <view class="pb-extended" v-if="showDetail">
+              
+              <!-- 基础信息 -->
+              <view class="d-card">
+                <text class="d-title">基础资料</text>
+                <view class="d-grid">
+                  <view class="d-item" v-if="currentCard.height"><text class="d-icon">📏</text><text>{{ currentCard.height }} cm</text></view>
+                  <view class="d-item" v-if="currentCard.education"><text class="d-icon">🎓</text><text>{{ currentCard.education }}</text></view>
+                  <view class="d-item" v-if="currentCard.occupation"><text class="d-icon">💼</text><text>{{ currentCard.occupation }}</text></view>
+                  <view class="d-item" v-if="currentCard.city"><text class="d-icon">📍</text><text>{{ currentCard.city }}</text></view>
+                  <view class="d-item" v-if="currentCard.gender === 1"><text class="d-icon">♂</text><text>男生</text></view>
+                  <view class="d-item" v-if="currentCard.gender === 2"><text class="d-icon">♀</text><text>女生</text></view>
+                </view>
               </view>
-            </view>
 
-            <!-- 兴趣标签 -->
-            <view class="d-card" v-if="currentCard.interests?.length">
-              <text class="d-title">兴趣标签</text>
-              <view class="d-tags">
-                <view class="d-tag" v-for="(t, i) in currentCard.interests" :key="i">{{ t }}</view>
+              <!-- 相册 -->
+              <view class="d-card" v-if="currentCard.photos?.length > 1">
+                <text class="d-title">生活相册</text>
+                <view class="d-photos">
+                  <image 
+                    class="d-photo" 
+                    v-for="(p, i) in currentCard.photos" 
+                    :key="i" 
+                    :src="p.url" 
+                    mode="aspectFill" 
+                    @tap.stop="previewPhotos(i)"
+                  />
+                </view>
               </view>
-            </view>
 
-            <!-- 相册 -->
-            <view class="d-card" v-if="currentCard.photos?.length">
-              <text class="d-title">相册</text>
-              <view class="d-photos">
-                <image 
-                  class="d-photo" 
-                  v-for="(p, i) in currentCard.photos" 
-                  :key="i" 
-                  :src="p.url" 
-                  mode="aspectFill" 
-                  @tap.stop="previewPhotos(i)"
-                />
+              <!-- 举报拉黑 -->
+              <view class="d-actions-link">
+                <text class="d-link" @tap.stop="reportUser">举报该用户</text>
+                <text class="d-divider">|</text>
+                <text class="d-link" @tap.stop="blockUser">拉黑该用户</text>
               </view>
+              
+              <view class="detail-bottom-space"></view>
             </view>
 
-            <!-- 举报拉黑 -->
-            <view class="d-actions-link">
-              <text class="d-link" @tap.stop="reportUser">举报该用户</text>
-              <text class="d-divider">|</text>
-              <text class="d-link" @tap.stop="blockUser">拉黑该用户</text>
-            </view>
-
-            <view class="detail-bottom-space"></view>
           </view>
         </scroll-view>
+
+        <!-- 未展开时的渐变遮罩提示 -->
+        <view class="body-fade-out" v-if="!showDetail" @tap="toggleDetail">
+          <view class="expand-hint">
+            <text>点击或上滑查看详细资料</text>
+            <text class="arrow-down">⌄</text>
+          </view>
+        </view>
       </view>
       
-      <!-- 右侧悬浮操作栏 (未展开时) -->
-      <view class="right-actions" v-if="!showDetail">
-        <view class="r-btn like" @tap.stop="animateLike">
-          <text class="r-icon">♥</text>
+      <!-- 右侧悬浮操作栏 -->
+      <view class="right-actions" :class="{'actions-expanded': showDetail}">
+        <!-- Gift Button -->
+        <view class="r-btn gift" @tap.stop="handleGift">
+          <text class="r-icon">🌸</text>
         </view>
+        <!-- Like Button -->
+        <view class="r-btn like" @tap.stop="animateLike">
+          <text class="r-icon">❤️</text>
+        </view>
+        <!-- Later Button -->
         <view class="r-btn later" @tap.stop="handleLater">
           <text class="r-icon">💤</text>
         </view>
+        <!-- Nope Button -->
         <view class="r-btn nope" @tap.stop="animateSkip">
-          <text class="r-icon">✕</text>
+          <text class="r-icon">✖</text>
         </view>
-      </view>
-
-      <!-- 底部操作栏 (展开时) -->
-      <view class="expanded-actions" v-if="showDetail">
-        <view class="e-btn nope" @tap.stop="animateSkip"><text class="e-icon">✕</text></view>
-        <view class="e-btn later" @tap.stop="handleLater"><text class="e-icon">💤</text><text class="e-text">稍后再看</text></view>
-        <view class="e-btn like" @tap.stop="animateLike"><text class="e-icon">♥</text></view>
       </view>
 
     </view>
@@ -336,6 +341,10 @@ function handleLater() {
   }, 300)
 }
 
+function handleGift() {
+  uni.showToast({ title: '礼物功能即将上线，敬请期待', icon: 'none' })
+}
+
 function resetCard() { 
   isSwiping.value = true
   cardOffsetX.value = 0
@@ -456,7 +465,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 <style scoped>
 .page { 
   height: 100vh; 
-  background: #f4f6f8; 
+  background: #fdfdfd; 
   display: flex; 
   flex-direction: column; 
   overflow: hidden; 
@@ -487,7 +496,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .card { 
   position: absolute;
   top: 12rpx; left: 16rpx; right: 16rpx; bottom: 12rpx;
-  border-radius: 32rpx; 
+  border-radius: 40rpx; 
   background: #fff;
   overflow: hidden; 
   will-change: transform, opacity; 
@@ -511,144 +520,183 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .hero-area {
   position: relative;
   width: 100%;
-  background: #000;
-  overflow: hidden;
+  height: 55vh;
+  background: #f7f8fa;
   transition: height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
 }
-.hero-img { 
+.card.is-expanded .hero-area {
+  height: 60vh;
+}
+.hero-bg { 
   position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
 }
-.hero-overlay { 
-  position: absolute; bottom: 0; left: 0; right: 0; height: 60%; 
-  background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); 
+.hero-fade { 
+  position: absolute; bottom: -2rpx; left: 0; right: 0; height: 280rpx; 
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%); 
   pointer-events: none; 
 }
+
+/* 用户头部信息 (悬浮) */
+.hero-user-info {
+  position: absolute;
+  bottom: 24rpx;
+  left: 32rpx;
+  right: 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  z-index: 10;
+}
+.hu-avatar {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 6rpx solid #fff;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.1);
+  flex-shrink: 0;
+  background: #fff;
+}
+.hu-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.hu-name-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 12rpx; }
+.hu-name { font-size: 44rpx; font-weight: 800; color: #1a1a1a; }
+.hu-verified { 
+  width: 32rpx; height: 32rpx; border-radius: 50%; background: #1890ff; color: #fff; 
+  display: flex; align-items: center; justify-content: center; 
+}
+.hu-verified text { font-size: 20rpx; font-weight: bold; }
+
+.hu-meta { 
+  display: inline-flex; align-items: center; background: rgba(0,0,0,0.45); 
+  backdrop-filter: blur(10px); padding: 10rpx 24rpx; border-radius: 30rpx; gap: 10rpx; 
+}
+.hu-meta text { color: #fff; font-size: 24rpx; font-weight: 500; }
+.online-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #07c160; }
+.divider { color: rgba(255,255,255,0.6); font-size: 20rpx; margin: 0 4rpx; }
+.text-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 悬浮标签 */
+.swipe-tag { position: absolute; top: 120rpx; z-index: 50; padding: 12rpx 36rpx; border-radius: 16rpx; border: 8rpx solid; font-size: 56rpx; font-weight: 900; letter-spacing: 4rpx; pointer-events: none; }
+.like-tag { left: 40rpx; color: #ff4757; border-color: #ff4757; transform: rotate(-15deg); }
+.nope-tag { right: 40rpx; color: #1a1a1a; border-color: #1a1a1a; transform: rotate(15deg); }
+
 .close-btn {
   position: absolute;
   right: 32rpx;
   width: 80rpx; height: 80rpx;
   border-radius: 50%;
-  background: rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.5);
   backdrop-filter: blur(10px);
   display: flex; align-items: center; justify-content: center;
   z-index: 20;
 }
-.cb-icon { font-size: 36rpx; color: #fff; font-weight: bold; }
+.cb-icon { font-size: 40rpx; color: #333; font-weight: bold; }
 
-/* 悬浮标签 & 信息 */
-.swipe-tag { position: absolute; top: 120rpx; z-index: 10; padding: 12rpx 36rpx; border-radius: 16rpx; border: 8rpx solid; font-size: 56rpx; font-weight: 900; letter-spacing: 4rpx; pointer-events: none; }
-.like-tag { left: 40rpx; color: #07c160; border-color: #07c160; transform: rotate(-15deg); }
-.nope-tag { right: 40rpx; color: #ff4757; border-color: #ff4757; transform: rotate(15deg); }
 
-.photo-num { position: absolute; top: 32rpx; left: 32rpx; padding: 8rpx 20rpx; border-radius: 30rpx; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); font-size: 24rpx; color: #fff; font-weight: 600; z-index: 5; }
-
-.hero-info { 
-  position: absolute; bottom: 0; left: 0; right: 0; 
-  padding: 0 40rpx 40rpx; z-index: 5; 
-  transition: all 0.4s;
+/* 资料内容区 */
+.profile-body {
+  background: #ffffff;
+  padding: 10rpx 140rpx 60rpx 40rpx; /* right padding leaves space for floating actions */
+  min-height: 40vh;
 }
-.hero-info.expanded-info {
-  padding-bottom: 60rpx;
+
+.pb-section { margin-bottom: 32rpx; }
+.pb-compat { line-height: 1.5; }
+.compat-text { font-size: 26rpx; color: #999; }
+.compat-highlight { font-size: 26rpx; color: #ff4757; font-weight: 700; margin: 0 4rpx; }
+
+.pb-tags { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.tag-capsule {
+  padding: 12rpx 32rpx; border-radius: 40rpx; font-size: 26rpx; font-weight: 500; 
+  display: inline-flex; align-items: center; gap: 8rpx;
 }
-.hi-name-row { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx; }
-.hi-name { font-size: 56rpx; font-weight: 800; color: #fff; text-shadow: 0 4rpx 12rpx rgba(0,0,0,0.3); }
-.hi-age { font-size: 36rpx; color: #fff; font-weight: 500; }
-.hi-online { padding: 4rpx 16rpx; border-radius: 20rpx; background: #07c160; font-size: 20rpx; color: #fff; font-weight: 700; margin-left: 8rpx; }
+.gradient-tag {
+  background: linear-gradient(135deg, #ff6b81, #ff4757); color: #fff; 
+  box-shadow: 0 4rpx 12rpx rgba(255,107,129,0.3);
+}
+.plain-tag { background: #f4f6f8; color: #666; }
+.tag-icon { font-size: 24rpx; }
 
-.hi-meta { display: flex; flex-wrap: wrap; gap: 16rpx; margin-bottom: 24rpx; }
-.hi-tag { padding: 8rpx 24rpx; border-radius: 30rpx; background: rgba(255,255,255,0.2); backdrop-filter: blur(8px); font-size: 24rpx; color: #fff; font-weight: 500; display: flex; gap: 8rpx; align-items: center; }
+.section-title { font-size: 26rpx; color: #999; font-weight: 600; margin-bottom: 16rpx; display: block; }
+.bio-text { font-size: 30rpx; color: #333; line-height: 1.6; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-.hi-compat { display: inline-flex; align-items: center; gap: 12rpx; padding: 12rpx 28rpx; background: rgba(255,107,129,0.9); border-radius: 30rpx; margin-bottom: 24rpx; }
-.compat-icon { font-size: 24rpx; color: #fff; }
-.compat-txt { font-size: 24rpx; color: #fff; font-weight: 700; }
-
-.hi-hint { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4rpx; opacity: 0.6; margin-top: 20rpx; }
-.hint-arrow { font-size: 24rpx; color: #fff; font-weight: bold; animation: bounce 1.5s infinite; }
-.hi-hint text { font-size: 22rpx; color: #fff; font-weight: 500; letter-spacing: 2rpx; }
-
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8rpx); } }
-
-/* 详细内容区 */
-.detail-content {
-  background: #f4f6f8;
-  padding: 40rpx 0;
-  min-height: 50vh;
+/* 详细资料 */
+.pb-extended {
+  margin-top: 40rpx;
+  margin-right: -100rpx; /* compensate for the profile-body right padding to make cards full width */
 }
 .d-card {
-  background: #fff;
-  margin: 0 32rpx 32rpx;
-  padding: 40rpx;
-  border-radius: 32rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
+  background: #fdfdfd;
+  margin-bottom: 32rpx;
+  padding: 32rpx;
+  border-radius: 24rpx;
+  border: 1rpx solid #f0f0f0;
 }
-.d-title { font-size: 32rpx; font-weight: 800; color: #1a1a1a; margin-bottom: 24rpx; display: block; }
-.d-bio { font-size: 30rpx; color: #333; line-height: 1.7; }
-
-.d-grid { display: flex; flex-wrap: wrap; gap: 20rpx; }
-.d-item { padding: 14rpx 32rpx; background: #f8f9fa; border-radius: 40rpx; font-size: 26rpx; color: #1a1a1a; font-weight: 500; display: flex; gap: 12rpx; }
+.d-title { font-size: 28rpx; font-weight: 800; color: #1a1a1a; margin-bottom: 24rpx; display: block; }
+.d-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.d-item { padding: 12rpx 28rpx; background: #f4f6f8; border-radius: 30rpx; font-size: 26rpx; color: #333; font-weight: 500; display: flex; gap: 12rpx; }
 .d-icon { color: #888; }
 
-.d-tags { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.d-tag { padding: 12rpx 32rpx; border-radius: 40rpx; background: rgba(255,107,129,0.1); color: #ff4757; font-size: 26rpx; font-weight: 600; }
-
 .d-photos { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.d-photo { width: calc(33.33% - 11rpx); height: 220rpx; border-radius: 20rpx; }
+.d-photo { width: calc(33.33% - 11rpx); height: 220rpx; border-radius: 16rpx; }
 
-.compat-box { padding: 24rpx; background: linear-gradient(135deg, rgba(255,107,129,0.1), rgba(255,71,87,0.05)); border-radius: 24rpx; }
-.cb-title { font-size: 28rpx; font-weight: 700; color: #ff4757; margin-bottom: 16rpx; display: block; }
-.cb-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.cb-tag { font-size: 24rpx; color: #ff6b81; background: #fff; padding: 8rpx 20rpx; border-radius: 20rpx; font-weight: 500; }
-
-.d-actions-link { display: flex; justify-content: center; gap: 32rpx; margin-top: 60rpx; margin-bottom: 40rpx; }
+.d-actions-link { display: flex; justify-content: center; gap: 32rpx; margin-top: 60rpx; margin-bottom: 40rpx; padding-right: 100rpx; }
 .d-link { font-size: 26rpx; color: #999; font-weight: 500; }
 .d-divider { color: #dce0e5; }
-.detail-bottom-space { height: 200rpx; }
+.detail-bottom-space { height: 120rpx; }
+
+/* 未展开时的渐变遮罩提示 */
+.body-fade-out {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 160rpx;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 80%);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 20rpx;
+  z-index: 20;
+  border-radius: 0 0 40rpx 40rpx;
+}
+.expand-hint { display: flex; flex-direction: column; align-items: center; opacity: 0.5; gap: 2rpx; }
+.expand-hint text { font-size: 24rpx; color: #1a1a1a; font-weight: 600; letter-spacing: 2rpx; }
+.arrow-down { font-size: 28rpx; font-weight: bold; animation: bounce 1.5s infinite; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8rpx); } }
 
 /* 右侧悬浮操作栏 */
 .right-actions {
   position: absolute;
-  right: 32rpx;
-  bottom: 240rpx;
+  right: 24rpx;
+  bottom: 180rpx;
   display: flex;
   flex-direction: column;
-  gap: 40rpx;
-  z-index: 50;
+  align-items: center;
+  gap: 32rpx;
+  z-index: 100;
+  transition: all 0.3s;
+}
+.right-actions.actions-expanded {
+  bottom: 100rpx;
 }
 .r-btn {
-  width: 100rpx; height: 100rpx;
+  width: 90rpx; height: 90rpx;
   border-radius: 50%;
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(10px);
-  box-shadow: 0 12rpx 32rpx rgba(0,0,0,0.15);
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.12);
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.2s;
 }
 .r-btn:active { transform: scale(0.85); }
-.r-btn.like { width: 120rpx; height: 120rpx; right: -10rpx; position: relative; } /* Like 更大一点 */
-.r-btn.like .r-icon { color: #07c160; font-size: 60rpx; margin-top: 4rpx; }
-.r-btn.nope .r-icon { color: #ff4757; font-size: 40rpx; font-weight: bold; }
-.r-btn.later .r-icon { color: #ffa502; font-size: 44rpx; }
-
-/* 展开时的底部操作栏 */
-.expanded-actions {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  padding: 32rpx 48rpx calc(32rpx + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.9) 30%, #fff 100%);
-  display: flex; justify-content: center; align-items: center; gap: 40rpx;
-  z-index: 110;
-}
-.e-btn {
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.1);
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
-}
-.e-btn:active { transform: scale(0.9); }
-.e-btn.nope { width: 110rpx; height: 110rpx; color: #ff4757; font-size: 40rpx; font-weight: bold; }
-.e-btn.like { width: 140rpx; height: 140rpx; background: #07c160; color: #fff; font-size: 64rpx; box-shadow: 0 12rpx 32rpx rgba(7,193,96,0.3); }
-.e-btn.later { width: auto; height: 110rpx; padding: 0 40rpx; border-radius: 55rpx; color: #ffa502; font-size: 32rpx; font-weight: 600; gap: 12rpx; }
+.r-btn.like { width: 110rpx; height: 110rpx; } /* Like 更大一点 */
+.r-btn.gift .r-icon { font-size: 40rpx; }
+.r-btn.like .r-icon { font-size: 50rpx; margin-top: 4rpx; }
+.r-btn.later .r-icon { font-size: 36rpx; }
+.r-btn.nope .r-icon { color: #888; font-size: 32rpx; font-weight: bold; }
 
 
 /* 骨架与空状态 */
@@ -657,7 +705,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
 .shimmer { background: linear-gradient(90deg,#e8e8e8 25%,#f5f5f5 50%,#e8e8e8 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 
-.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 60rpx; background: #f4f6f8; }
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 60rpx; background: #fdfdfd; }
 .empty-ring { width: 160rpx; height: 160rpx; border-radius: 50%; background: #fff; box-shadow: 0 12rpx 32rpx rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; margin-bottom: 32rpx; font-size: 64rpx; }
 .empty-t { font-size: 36rpx; font-weight: 800; color: #1a1a1a; margin-bottom: 12rpx; }
 .empty-s { font-size: 28rpx; color: #999; margin-bottom: 48rpx; text-align: center; }
