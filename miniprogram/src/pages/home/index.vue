@@ -10,8 +10,13 @@
             <text class="quota-num">{{ dailyRemaining }}</text>
           </view>
           <view class="glass-circle" @tap="showFilterPanel = true">
-            <text class="icon-text">􀤆</text> <!-- 占位符，实际会用 CSS 渲染个类似滤镜的图标或直接用文字/emoji -->
-            <text>⚙️</text>
+            <!-- 苹果风格筛选图标 -->
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
           </view>
         </view>
       </view>
@@ -35,18 +40,22 @@
           :scroll-y="showDetail" 
           :show-scrollbar="false"
         >
-          <!-- 英雄区域 (照片 + 毛玻璃渐变) -->
-          <view 
-            class="hero-area" 
-            @touchstart="onHeroTouchStart"
-            @touchmove="onHeroTouchMove"
-            @touchend="onHeroTouchEnd"
-            @tap="!showDetail && toggleDetail()"
-          >
-            <image class="hero-bg" :src="currentCard.photos?.[0]?.url || currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
+          <!-- 英雄区域 (Swiper 照片墙 + 毛玻璃渐变) -->
+          <view class="hero-area">
+            <swiper 
+              class="hero-swiper" 
+              :indicator-dots="displayPhotos.length > 1" 
+              indicator-color="rgba(255,255,255,0.4)" 
+              indicator-active-color="#FFFFFF"
+              :current="0"
+            >
+              <swiper-item v-for="(photo, i) in displayPhotos" :key="i" @tap="!showDetail && toggleDetail()">
+                <image class="hero-bg" :src="photo.url" mode="aspectFill" />
+              </swiper-item>
+            </swiper>
             
             <!-- 底部柔和阴影，保证文字可读性 -->
-            <view class="hero-fade"></view>
+            <view class="hero-fade" pointer-events="none"></view>
             
             <!-- 用户头部信息 (悬浮在渐变上) -->
             <view class="hero-user-info">
@@ -78,12 +87,18 @@
             
             <!-- 展开时的毛玻璃关闭按钮 -->
             <view class="close-btn glass-morphism" v-if="showDetail" @tap.stop="toggleDetail" :style="{ top: (statusBarHeight + 10) + 'px' }">
-              <text class="cb-icon">↓</text>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </view>
           </view>
 
           <!-- 资料内容区 -->
-          <view class="profile-body" @tap="!showDetail && toggleDetail()">
+          <view 
+            class="profile-body" 
+            @touchstart="onHeroTouchStart"
+            @touchmove="onHeroTouchMove"
+            @touchend="onHeroTouchEnd"
+            @tap="!showDetail && toggleDetail()"
+          >
             
             <!-- 契合度推荐 (Apple 风格强调文本层级) -->
             <view class="pb-section pb-compat" v-if="currentCard.compatibility && currentCard.compatibility.score > 0">
@@ -132,12 +147,12 @@
               </view>
 
               <!-- 相册 (无缝圆角边缘) -->
-              <view class="apple-card" v-if="currentCard.photos?.length > 1">
+              <view class="apple-card" v-if="displayPhotos.length > 1">
                 <text class="apple-section-title">生活相册</text>
                 <view class="d-photos">
                   <image 
                     class="d-photo" 
-                    v-for="(p, i) in currentCard.photos" 
+                    v-for="(p, i) in displayPhotos" 
                     :key="i" 
                     :src="p.url" 
                     mode="aspectFill" 
@@ -166,19 +181,23 @@
         </view>
       </view>
       
-      <!-- 右侧悬浮操作栏 (Apple Glassmorphism) -->
+      <!-- 右侧悬浮操作栏 (Apple Glassmorphism + SVGs) -->
       <view class="right-actions" :class="{'actions-expanded': showDetail}">
-        <view class="r-btn glass-morphism gift" @tap.stop="handleGift">
-          <text class="r-icon">🎁</text>
+        <!-- Gift -->
+        <view class="r-btn glass-morphism" @tap.stop="handleGift">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF9500" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>
         </view>
+        <!-- Like -->
         <view class="r-btn glass-morphism like primary-pop" @tap.stop="animateLike">
-          <text class="r-icon">❤️</text>
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="#FF2D55" stroke="#FF2D55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
         </view>
-        <view class="r-btn glass-morphism later" @tap.stop="handleLater">
-          <text class="r-icon">💤</text>
+        <!-- Later (Bookmark style) -->
+        <view class="r-btn glass-morphism" @tap.stop="handleLater">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
         </view>
-        <view class="r-btn glass-morphism nope" @tap.stop="animateSkip">
-          <text class="r-icon">✖</text>
+        <!-- Nope (Cross) -->
+        <view class="r-btn glass-morphism" @tap.stop="animateSkip">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </view>
       </view>
 
@@ -194,7 +213,7 @@
 
     <MatchModal :visible="showMatchModal" @close="closeMatchModal" @chat="goToChat" />
 
-    <!-- 筛选 (Apple Bottom Sheet Style) -->
+    <!-- 筛选 (Apple Bottom Sheet Style, Added ScrollView for Fix) -->
     <view class="mask" v-if="showFilterPanel" @tap="showFilterPanel = false">
       <view class="sheet" @tap.stop>
         <view class="sheet-handle"></view>
@@ -202,26 +221,28 @@
           <text class="sh">偏好设置</text>
           <text class="sr" @tap="resetFilters">重置</text>
         </view>
-        <view class="sg">
-          <text class="sl">希望认识</text>
-          <view class="sc-row">
-            <view :class="['sc',{on:filterGender===null}]" @tap="filterGender=null"><text>不限</text></view>
-            <view :class="['sc',{on:filterGender===1}]" @tap="filterGender=1"><text>男生</text></view>
-            <view :class="['sc',{on:filterGender===2}]" @tap="filterGender=2"><text>女生</text></view>
+        <scroll-view scroll-y class="sheet-scroll" :show-scrollbar="false">
+          <view class="sg">
+            <text class="sl">希望认识</text>
+            <view class="sc-row">
+              <view :class="['sc',{on:filterGender===null}]" @tap="filterGender=null"><text>不限</text></view>
+              <view :class="['sc',{on:filterGender===1}]" @tap="filterGender=1"><text>男生</text></view>
+              <view :class="['sc',{on:filterGender===2}]" @tap="filterGender=2"><text>女生</text></view>
+            </view>
           </view>
-        </view>
-        <view class="sg">
-          <text class="sl">年龄范围</text>
-          <view class="sc-row">
-            <view :class="['sc',{on:filterAge===null}]" @tap="filterAge=null"><text>不限</text></view>
-            <view :class="['sc',{on:filterAge===`18-25`}]" @tap="filterAge='18-25'"><text>18-25</text></view>
-            <view :class="['sc',{on:filterAge===`25-30`}]" @tap="filterAge='25-30'"><text>25-30</text></view>
-            <view :class="['sc',{on:filterAge===`30-40`}]" @tap="filterAge='30-40'"><text>30-40</text></view>
+          <view class="sg">
+            <text class="sl">年龄范围</text>
+            <view class="sc-row">
+              <view :class="['sc',{on:filterAge===null}]" @tap="filterAge=null"><text>不限</text></view>
+              <view :class="['sc',{on:filterAge===`18-25`}]" @tap="filterAge='18-25'"><text>18-25</text></view>
+              <view :class="['sc',{on:filterAge===`25-30`}]" @tap="filterAge='25-30'"><text>25-30</text></view>
+              <view :class="['sc',{on:filterAge===`30-40`}]" @tap="filterAge='30-40'"><text>30-40</text></view>
+            </view>
           </view>
-        </view>
-        <view class="sa">
-          <view class="apple-btn primary" @tap="applyFilters"><text>完成</text></view>
-        </view>
+          <view class="sa">
+            <view class="apple-btn primary" @tap="applyFilters"><text>完成</text></view>
+          </view>
+        </scroll-view>
       </view>
     </view>
   </view>
@@ -244,6 +265,17 @@ const currentCard = ref<any>(null)
 const showFilterPanel = ref(false)
 const filterGender = ref<number | null>(null)
 const filterAge = ref<string | null>(null)
+
+const displayPhotos = computed(() => {
+  if (!currentCard.value) return []
+  if (currentCard.value.all_photos && currentCard.value.all_photos.length > 0) {
+    return currentCard.value.all_photos
+  }
+  if (currentCard.value.photos && currentCard.value.photos.length > 0) {
+    return currentCard.value.photos.map((p: any) => typeof p === 'string' ? {url: p} : p)
+  }
+  return [{ url: currentCard.value.avatar_url || defaultAvatar }]
+})
 
 // 动画与交互状态
 const isAnimating = ref(false)
@@ -412,30 +444,33 @@ async function handleLike() {
     uni.showToast({ title: `今日喜欢额度已用完`, icon: 'none', duration: 2500 })
     return
   }
+  let isMatch = false
   try {
     const r = await matchApi.swipe(currentCard.value.user_id, true)
     if (dailyRemaining.value > 0) dailyRemaining.value--
     if (r.data.is_match) { 
       matchedId.value = r.data.match_id
       showMatchModal.value = true 
+      isMatch = true
     }
-    currentIndex.value++
-    showNext()
   } catch (e: any) {
     if (e?.statusCode === 429 || e?.message?.includes('上限')) {
       dailyRemaining.value = 0
       uni.showToast({ title: '今日喜欢次数已用完', icon: 'none' })
+      return // 阻止卡片滑走
     }
   }
+  currentIndex.value++
+  showNext()
 }
 
 async function handleSkip() {
   if (!currentCard.value) return
   try { 
     await matchApi.swipe(currentCard.value.user_id, false)
-    currentIndex.value++
-    showNext() 
   } catch {}
+  currentIndex.value++
+  showNext() 
 }
 
 function reportUser() {
@@ -471,7 +506,7 @@ function blockUser() {
 }
 
 function previewPhotos(i: number) { 
-  const u = currentCard.value?.photos?.map((p:any) => p.url) || []
+  const u = displayPhotos.value.map(p => p.url)
   if (u.length) uni.previewImage({ urls: u, current: u[i] || u[0] }) 
 }
 
@@ -543,10 +578,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
   background: #FFFFFF; 
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04); 
   display: flex; align-items: center; justify-content: center; 
-  font-size: 32rpx; 
-  color: #000; 
 }
-.icon-text { display: none; } /* 隐藏占位符 */
 
 /* ====== 卡片容器与主卡片 (Large Squircles) ====== */
 .card-wrap {
@@ -589,6 +621,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .card.is-expanded .hero-area {
   height: 65vh;
 }
+.hero-swiper { width: 100%; height: 100%; }
 .hero-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .hero-fade { 
   position: absolute; bottom: 0; left: 0; right: 0; height: 360rpx; 
@@ -652,7 +685,6 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
   display: flex; align-items: center; justify-content: center;
   z-index: 20;
 }
-.cb-icon { font-size: 32rpx; color: #000; font-weight: 700; }
 
 /* ====== 资料内容区 ====== */
 .profile-body {
@@ -729,7 +761,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 }
 .expand-hint text { font-size: 24rpx; color: #1C1C1E; font-weight: 600; }
 
-/* ====== 右侧悬浮操作栏 (Apple Layout) ====== */
+/* ====== 右侧悬浮操作栏 (Apple Layout & SVG Icons) ====== */
 .right-actions {
   position: absolute;
   right: 24rpx;
@@ -755,10 +787,6 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 }
 .r-btn:active { transform: scale(0.85); }
 .r-btn.like { width: 120rpx; height: 120rpx; margin: 10rpx 0; } 
-.r-btn.gift .r-icon { font-size: 40rpx; }
-.r-btn.like .r-icon { font-size: 56rpx; margin-top: 4rpx; }
-.r-btn.later .r-icon { font-size: 40rpx; }
-.r-btn.nope .r-icon { color: #8E8E93; font-size: 32rpx; font-weight: 800; }
 .primary-pop { border: 2rpx solid #FF2D55; }
 
 /* ====== 骨架与空状态 ====== */
@@ -778,6 +806,10 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 /* ====== 苹果底部弹窗 (Bottom Sheet) ====== */
 .mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: flex-end; }
 .sheet { width: 100%; background: #FFFFFF; border-radius: 48rpx 48rpx 0 0; padding: 24rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); position: relative; }
+/* #ifdef H5 */
+.sheet { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+/* #endif */
+.sheet-scroll { max-height: 60vh; }
 .sheet-handle { width: 80rpx; height: 10rpx; border-radius: 10rpx; background: #E5E5EA; margin: 0 auto 32rpx; }
 .sheet-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 48rpx; }
 .sh { font-size: 40rpx; font-weight: 800; color: #000000; }
@@ -787,5 +819,5 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .sc-row { display: flex; gap: 20rpx; flex-wrap: wrap; }
 .sc { padding: 16rpx 40rpx; border-radius: 40rpx; background: #F2F2F7; font-size: 30rpx; color: #1C1C1E; font-weight: 600; }
 .sc.on { background: #000000; color: #FFFFFF; }
-.sa { padding-top: 32rpx; }
+.sa { padding-top: 32rpx; padding-bottom: 20rpx; }
 </style>
