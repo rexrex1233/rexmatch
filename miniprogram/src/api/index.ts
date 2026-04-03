@@ -32,6 +32,8 @@ export const userApi = {
   },
   deletePhoto: (photoId: number) => api.del(`/users/me/photos/${photoId}`),
   getAllInterests: () => api.get('/users/interests/all'),
+  addCustomInterest: (name: string, category: string = '自定义') => 
+    api.post('/users/interests/custom', { name, category }),
   getPreferences: () => api.get('/users/me/preferences'),
   updatePreferences: (data: any) => api.put('/users/me/preferences', data),
 }

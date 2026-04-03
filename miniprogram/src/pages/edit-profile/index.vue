@@ -142,17 +142,70 @@
       </view>
       <text class="section-desc">选择契合的标签，更容易遇到同频的人</text>
 
-      <view class="interest-group" v-for="group in interestGroups" :key="group.category">
-        <text class="group-label">{{ group.category }}</text>
-        <view class="tag-wall">
+      <!-- 气泡导航 Tabs -->
+      <scroll-view class="category-tabs" scroll-x :show-scrollbar="false">
+        <view class="tab-list">
+          <view 
+            class="cat-tab" 
+            :class="{ active: currentCategory === group.category }"
+            v-for="group in interestGroups" 
+            :key="group.category"
+            @tap="currentCategory = group.category"
+          >
+            {{ group.category }}
+          </view>
+          <!-- 自定义 Tab -->
+          <view 
+            class="cat-tab" 
+            :class="{ active: currentCategory === '自定义' }"
+            @tap="currentCategory = '自定义'"
+          >
+            + 自定义
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- 标签气泡墙 -->
+      <view class="tag-wall-container">
+        <!-- 预设标签 -->
+        <view class="tag-wall" v-if="currentCategory !== '自定义'">
           <view
-            class="tag-chip"
+            class="tag-bubble"
             :class="{ selected: selectedInterests.includes(tag.id) }"
-            v-for="tag in group.tags"
+            v-for="tag in currentGroupTags"
             :key="tag.id"
             @tap="toggleInterest(tag.id)"
           >
+            <text class="tag-icon" v-if="tag.icon">{{ tag.icon }}</text>
             <text>{{ tag.name }}</text>
+          </view>
+        </view>
+
+        <!-- 自定义标签区 -->
+        <view class="custom-tag-area" v-else>
+          <view class="tag-wall" v-if="customTags.length > 0">
+            <view
+              class="tag-bubble"
+              :class="{ selected: selectedInterests.includes(tag.id) }"
+              v-for="tag in customTags"
+              :key="tag.id"
+              @tap="toggleInterest(tag.id)"
+            >
+              <text>{{ tag.name }}</text>
+            </view>
+          </view>
+          <view class="empty-tip" v-else>还没有自定义标签，快来创建一个吧</view>
+          
+          <view class="custom-input-box" v-if="selectedInterests.length < 10">
+            <input 
+              class="custom-input" 
+              v-model="customTagText" 
+              placeholder="输入个性标签 (限8字)" 
+              maxlength="8"
+              @confirm="addCustomTag"
+              placeholder-class="ph-color"
+            />
+            <button class="add-tag-btn" @tap="addCustomTag" :disabled="!customTagText.trim()">添加</button>
           </view>
         </view>
       </view>
@@ -226,15 +279,28 @@ const form = reactive({
 const allInterests = ref<any[]>([])
 const selectedInterests = ref<number[]>([])
 
+const currentCategory = ref('')
+const customTagText = ref('')
+
 const interestGroups = computed(() => {
   const groups: Record<string, { category: string; tags: any[] }> = {}
   for (const tag of allInterests.value) {
+    if (tag.category === '自定义') continue
     if (!groups[tag.category]) {
       groups[tag.category] = { category: tag.category, tags: [] }
     }
     groups[tag.category].tags.push(tag)
   }
   return Object.values(groups)
+})
+
+const customTags = computed(() => {
+  return allInterests.value.filter(t => t.category === '自定义')
+})
+
+const currentGroupTags = computed(() => {
+  const group = interestGroups.value.find(g => g.category === currentCategory.value)
+  return group ? group.tags : []
 })
 
 onMounted(async () => {
@@ -278,8 +344,35 @@ async function loadInterests() {
   try {
     const res = await userApi.getAllInterests()
     allInterests.value = res.data || []
+    if (interestGroups.value.length > 0 && !currentCategory.value) {
+      currentCategory.value = interestGroups.value[0].category
+    }
   } catch (e) {
     console.error('加载兴趣标签失败', e)
+  }
+}
+
+async function addCustomTag() {
+  const text = customTagText.value.trim()
+  if (!text) return
+  if (selectedInterests.value.length >= 10) {
+    uni.showToast({ title: '最多选择10个标签', icon: 'none' })
+    return
+  }
+  
+  try {
+    const res = await userApi.addCustomInterest(text, '自定义')
+    if (res.data) {
+      if (!allInterests.value.find(t => t.id === res.data.id)) {
+        allInterests.value.push(res.data)
+      }
+      if (!selectedInterests.value.includes(res.data.id)) {
+        selectedInterests.value.push(res.data.id)
+      }
+      customTagText.value = ''
+    }
+  } catch (e) {
+    uni.showToast({ title: '添加自定义标签失败', icon: 'none' })
   }
 }
 
@@ -564,25 +657,115 @@ async function saveProfile() {
 .bio-count { position: absolute; bottom: 20rpx; right: 24rpx; font-size: 24rpx; color: #a0a5ab; font-weight: 500; }
 
 /* 兴趣标签 */
-.interest-group { margin-bottom: 36rpx; }
-.interest-group:last-child { margin-bottom: 0; }
-.group-label { font-size: 28rpx; color: #1a1a1a; font-weight: 600; margin-bottom: 20rpx; display: block; }
-.tag-wall { display: flex; flex-wrap: wrap; gap: 20rpx 16rpx; }
-.tag-chip { 
-  padding: 14rpx 36rpx; 
-  border-radius: 40rpx; 
-  background: #f0f2f5; 
-  font-size: 26rpx; 
-  color: #555; 
+.category-tabs {
+  white-space: nowrap;
+  margin-bottom: 32rpx;
+  padding-bottom: 8rpx;
+  border-bottom: 2rpx solid #f4f6f8;
+}
+.tab-list {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 8rpx;
+}
+.cat-tab {
+  display: inline-flex;
+  padding: 12rpx 32rpx;
+  font-size: 28rpx;
+  color: #a0a5ab;
   font-weight: 500;
-  transition: all 0.25s; 
-  border: 2rpx solid transparent; 
+  border-radius: 40rpx;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
 }
-.tag-chip.selected { 
-  background: rgba(255, 71, 87, 0.08); 
-  color: #ff4757; 
-  border-color: #ff4757; 
+.cat-tab.active {
+  color: #1a1a1a;
+  background: #f0f2f5;
+  font-weight: 600;
 }
+
+.tag-wall-container {
+  min-height: 240rpx;
+}
+.tag-wall {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx 16rpx;
+}
+.tag-bubble {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 36rpx;
+  border-radius: 100rpx;
+  background: #fff;
+  font-size: 26rpx;
+  color: #555;
+  font-weight: 500;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.03), inset 0 0 0 2rpx #f0f2f5;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.tag-bubble:active {
+  transform: scale(0.92);
+}
+.tag-bubble.selected {
+  background: #1a1a1a;
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.15);
+  transform: translateY(-4rpx);
+}
+.tag-bubble.selected:active {
+  transform: translateY(0) scale(0.95);
+}
+.tag-icon {
+  font-size: 30rpx;
+}
+
+.custom-tag-area {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.empty-tip {
+  font-size: 26rpx;
+  color: #a0a5ab;
+  text-align: center;
+  padding: 40rpx 0;
+}
+.custom-input-box {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding: 12rpx;
+  background: #f8f9fa;
+  border-radius: 100rpx;
+}
+.custom-input {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 32rpx;
+  font-size: 28rpx;
+  color: #1a1a1a;
+}
+.add-tag-btn {
+  width: 140rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+.add-tag-btn[disabled] {
+  background: #dce0e5;
+  color: #fff;
+}
+.add-tag-btn::after { border: none; }
 
 /* 底部按钮 */
 .bottom-spacer { height: constant(safe-area-inset-bottom); height: env(safe-area-inset-bottom); }
