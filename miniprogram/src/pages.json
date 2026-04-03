@@ -33,6 +33,13 @@
       }
     },
     {
+      "path": "pages/onboarding/index",
+      "style": {
+        "navigationBarTitleText": "完善资料",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/edit-profile/index",
       "style": {
         "navigationBarTitleText": "编辑资料"

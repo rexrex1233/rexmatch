@@ -60,7 +60,7 @@ export const useUserStore = defineStore('user', () => {
     await fetchProfile()
 
     if (res.data.is_new_user) {
-      uni.redirectTo({ url: '/pages/edit-profile/index?from=login' })
+      uni.redirectTo({ url: '/pages/onboarding/index' })
     } else {
       uni.switchTab({ url: '/pages/home/index' })
     }
