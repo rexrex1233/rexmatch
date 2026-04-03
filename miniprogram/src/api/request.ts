@@ -7,7 +7,7 @@
 const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1'
 // #endif
 // #ifndef H5
-const BASE_URL = 'https://your-app.onrender.com/api/v1'
+const BASE_URL = 'https://rexmatch-api.onrender.com/api/v1'
 // #endif
 
 interface RequestOptions {
