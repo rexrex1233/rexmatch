@@ -151,14 +151,14 @@
       
       <!-- 右侧悬浮操作栏 (未展开时) -->
       <view class="right-actions" v-if="!showDetail">
-        <view class="r-btn nope" @tap.stop="animateSkip">
-          <text class="r-icon">✕</text>
+        <view class="r-btn like" @tap.stop="animateLike">
+          <text class="r-icon">♥</text>
         </view>
         <view class="r-btn later" @tap.stop="handleLater">
           <text class="r-icon">💤</text>
         </view>
-        <view class="r-btn like" @tap.stop="animateLike">
-          <text class="r-icon">♥</text>
+        <view class="r-btn nope" @tap.stop="animateSkip">
+          <text class="r-icon">✕</text>
         </view>
       </view>
 
