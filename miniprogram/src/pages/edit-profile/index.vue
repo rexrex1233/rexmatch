@@ -8,13 +8,13 @@
           <text class="badge-icon">📷</text>
         </view>
       </view>
-      <text class="avatar-tip">点击更换头像</text>
+      <text class="avatar-tip">点击更换头像，展现最真实的你</text>
     </view>
 
     <!-- 照片墙 (最多9张) -->
-    <view class="card">
+    <view class="card photo-card">
       <view class="card-title-row">
-        <text class="card-title">我的照片</text>
+        <text class="card-title">我的相册</text>
         <text class="card-subtitle">{{ photos.length }}/9</text>
       </view>
       <view class="photo-grid">
@@ -24,112 +24,123 @@
             <text class="delete-icon">✕</text>
           </view>
           <view class="slot-badge" v-if="photo.is_avatar">
-            <text class="badge-text">头像</text>
+            <text class="badge-text">封面</text>
           </view>
         </view>
         <view class="photo-slot add-slot" v-if="photos.length < 9" @tap="addPhoto">
           <text class="add-icon">+</text>
-          <text class="add-text">添加</text>
         </view>
       </view>
-      <text class="photo-tip">添加更多照片能获得更多关注</text>
+      <text class="photo-tip">丰富的相册能让你获得3倍以上的喜欢喔！</text>
     </view>
 
-    <!-- 基本信息卡片 -->
+    <!-- 基本资料 -->
     <view class="card">
-      <text class="card-title">基本信息</text>
+      <text class="card-title">基本资料</text>
 
       <view class="form-row">
         <text class="form-label">昵称</text>
-        <input class="form-input" v-model="form.nickname" placeholder="取个好听的名字" maxlength="20" />
+        <view class="form-right">
+          <input class="form-input right" v-model="form.nickname" placeholder="输入好听的昵称" maxlength="15" placeholder-class="ph-color" />
+        </view>
       </view>
 
       <view class="form-row">
         <text class="form-label">性别</text>
         <view class="gender-group">
-          <view class="gender-chip" :class="{ active: form.gender === 1 }" @tap="form.gender = 1">
-            <text>♂ 男</text>
+          <view class="gender-btn" :class="{ active: form.gender === 1 }" @tap="form.gender = 1">
+            <text class="gender-icon">♂</text>男生
           </view>
-          <view class="gender-chip" :class="{ active: form.gender === 2 }" @tap="form.gender = 2">
-            <text>♀ 女</text>
+          <view class="gender-btn" :class="{ active: form.gender === 2 }" @tap="form.gender = 2">
+            <text class="gender-icon">♀</text>女生
           </view>
         </view>
       </view>
 
-      <view class="form-row" @tap="openBirthdayPicker">
+      <view class="form-row">
         <text class="form-label">生日</text>
-        <view class="form-right">
-          <text :class="['form-value', { placeholder: !form.birthday }]">
-            {{ form.birthday || '选择生日' }}
-          </text>
-          <text class="form-arrow">›</text>
-        </view>
-        <picker
-          class="hidden-picker"
-          mode="date"
-          :value="form.birthday"
-          start="1970-01-01"
-          end="2008-12-31"
-          @change="onBirthdayChange"
-        >
-          <view ref="birthdayPickerRef"></view>
+        <picker class="form-picker" mode="date" :value="form.birthday" start="1970-01-01" end="2008-12-31" @change="onBirthdayChange">
+          <view class="form-right">
+            <text :class="['form-value', { placeholder: !form.birthday }]">
+              {{ form.birthday || '选择生日' }}
+            </text>
+            <text class="form-arrow">›</text>
+          </view>
         </picker>
       </view>
 
       <view class="form-row">
         <text class="form-label">城市</text>
-        <view class="form-right">
-          <input class="form-input right" v-model="form.city" placeholder="你在哪座城市" />
-        </view>
+        <picker class="form-picker" mode="region" @change="onCityChange">
+          <view class="form-right">
+            <text :class="['form-value', { placeholder: !form.city }]">
+              {{ form.city || '选择常驻城市' }}
+            </text>
+            <text class="form-arrow">›</text>
+          </view>
+        </picker>
       </view>
 
       <view class="form-row">
         <text class="form-label">身高</text>
-        <view class="form-right">
-          <input class="form-input right short" v-model="form.height" placeholder="选填" type="number" />
-          <text class="form-unit">cm</text>
-        </view>
+        <picker class="form-picker" mode="selector" :range="heightOptions" @change="onHeightChange">
+          <view class="form-right">
+            <text :class="['form-value', { placeholder: !form.height }]">
+              {{ form.height ? form.height + ' cm' : '选择身高' }}
+            </text>
+            <text class="form-arrow">›</text>
+          </view>
+        </picker>
       </view>
 
-      <view class="form-row" @tap="showEduPicker = true">
+      <view class="form-row">
         <text class="form-label">学历</text>
-        <view class="form-right">
-          <text :class="['form-value', { placeholder: !form.education }]">
-            {{ form.education || '选择学历' }}
-          </text>
-          <text class="form-arrow">›</text>
-        </view>
+        <picker class="form-picker" mode="selector" :range="educationOptions" @change="onEduChange">
+          <view class="form-right">
+            <text :class="['form-value', { placeholder: !form.education }]">
+              {{ form.education || '选择学历' }}
+            </text>
+            <text class="form-arrow">›</text>
+          </view>
+        </picker>
       </view>
 
       <view class="form-row last">
         <text class="form-label">职业</text>
-        <view class="form-right">
-          <input class="form-input right" v-model="form.occupation" placeholder="你做什么工作" />
-        </view>
+        <picker class="form-picker" mode="selector" :range="occupationOptions" @change="onOccChange">
+          <view class="form-right">
+            <text :class="['form-value', { placeholder: !form.occupation }]">
+              {{ form.occupation || '选择行业/职业' }}
+            </text>
+            <text class="form-arrow">›</text>
+          </view>
+        </picker>
       </view>
     </view>
 
-    <!-- 关于我卡片 -->
+    <!-- 关于我 -->
     <view class="card">
       <text class="card-title">关于我</text>
       <view class="bio-wrapper">
         <textarea
           class="bio-input"
           v-model="form.bio"
-          placeholder="写点什么让别人更了解你吧..."
+          placeholder="介绍一下你的性格、爱好，或者期待遇到怎样的人..."
           maxlength="500"
           :auto-height="true"
+          placeholder-class="ph-color"
         />
         <text class="bio-count">{{ (form.bio || '').length }}/500</text>
       </view>
     </view>
 
-    <!-- 兴趣标签卡片 -->
+    <!-- 兴趣标签 -->
     <view class="card">
       <view class="card-title-row">
         <text class="card-title">兴趣标签</text>
         <text class="card-subtitle">{{ selectedInterests.length }}/10</text>
       </view>
+      <text class="section-desc">选择契合的标签，更容易遇到同频的人</text>
 
       <view class="interest-group" v-for="group in interestGroups" :key="group.category">
         <text class="group-label">{{ group.category }}</text>
@@ -151,30 +162,9 @@
 
     <!-- 悬浮保存按钮 -->
     <view class="fixed-bottom">
-      <button class="save-btn" :loading="saving" @tap="saveProfile">
-        保存资料
+      <button class="save-btn" :class="{ 'is-saving': saving }" :loading="saving" @tap="saveProfile">
+        完成并保存
       </button>
-    </view>
-
-    <!-- 学历选择底部弹窗 -->
-    <view class="picker-mask" v-if="showEduPicker" @tap="showEduPicker = false">
-      <view class="picker-sheet" @tap.stop>
-        <view class="picker-header">
-          <text class="picker-cancel" @tap="showEduPicker = false">取消</text>
-          <text class="picker-title">选择学历</text>
-          <view style="width: 80rpx"></view>
-        </view>
-        <view
-          class="picker-option"
-          :class="{ active: form.education === opt }"
-          v-for="opt in educationOptions"
-          :key="opt"
-          @tap="form.education = opt; showEduPicker = false"
-        >
-          <text>{{ opt }}</text>
-          <text class="check-icon" v-if="form.education === opt">✓</text>
-        </view>
-      </view>
     </view>
   </view>
 </template>
@@ -187,10 +177,17 @@ import { useUserStore } from '../../stores/user'
 
 const userStore = useUserStore()
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default'
-const educationOptions = ['高中', '大专', '本科', '硕士', '博士']
 const saving = ref(false)
-const showEduPicker = ref(false)
 const isFromLogin = ref(false)
+
+// 选择器配置数据
+const heightOptions = Array.from({ length: 81 }, (_, i) => i + 140) // 140-220cm
+const educationOptions = ['高中及以下', '大专', '本科', '硕士', '博士']
+const occupationOptions = [
+  '在校学生', 'IT/互联网', '金融/投资', '医疗/健康', 
+  '教育/科研', '传媒/影视', '艺术/设计', '法律/法务',
+  '政府/事业单位', '人事/行政', '销售/市场', '自由职业', '其他行业'
+]
 
 interface PhotoItem {
   id?: number
@@ -238,6 +235,7 @@ onMounted(async () => {
   await loadProfile()
 })
 
+// === 数据加载 ===
 async function loadProfile() {
   try {
     const res = await userApi.getMyProfile()
@@ -278,6 +276,36 @@ async function loadInterests() {
   }
 }
 
+// === Picker 处理 ===
+function onBirthdayChange(e: any) {
+  form.birthday = e.detail.value
+}
+
+function onCityChange(e: any) {
+  // mode="region" e.detail.value 是一个数组 ['省', '市', '区']
+  const val = e.detail.value
+  if (Array.isArray(val) && val.length >= 2) {
+    // 省市相同（如直辖市 北京 北京市），可以只取其一
+    if (val[0] === val[1] || val[1].includes(val[0])) {
+      form.city = val[1]
+    } else {
+      form.city = `${val[0]} ${val[1]}`
+    }
+  }
+}
+
+function onHeightChange(e: any) {
+  form.height = heightOptions[e.detail.value]
+}
+
+function onEduChange(e: any) {
+  form.education = educationOptions[e.detail.value]
+}
+
+function onOccChange(e: any) {
+  form.occupation = occupationOptions[e.detail.value]
+}
+
 function toggleInterest(id: number) {
   const idx = selectedInterests.value.indexOf(id)
   if (idx >= 0) {
@@ -289,12 +317,7 @@ function toggleInterest(id: number) {
   }
 }
 
-function onBirthdayChange(e: any) {
-  form.birthday = e.detail.value
-}
-
-function openBirthdayPicker() {}
-
+// === 照片处理 ===
 async function chooseAvatar() {
   uni.chooseImage({
     count: 1,
@@ -314,9 +337,8 @@ async function chooseAvatar() {
             is_avatar: true,
           })
         }
-        uni.showToast({ title: '头像已更新', icon: 'success' })
+        uni.showToast({ title: '封面已更新', icon: 'success' })
       } catch (e) {
-        console.error('上传失败', e)
         uni.showToast({ title: '上传失败', icon: 'none' })
       }
     },
@@ -326,7 +348,7 @@ async function chooseAvatar() {
 function addPhoto() {
   const remaining = 9 - photos.value.length
   if (remaining <= 0) {
-    uni.showToast({ title: '最多9张照片', icon: 'none' })
+    uni.showToast({ title: '最多上传9张', icon: 'none' })
     return
   }
   uni.chooseImage({
@@ -341,8 +363,7 @@ function addPhoto() {
             is_avatar: false,
           })
         } catch (e) {
-          console.error('上传失败', e)
-          uni.showToast({ title: '部分照片上传失败', icon: 'none' })
+          uni.showToast({ title: '部分上传失败', icon: 'none' })
         }
       }
     },
@@ -351,14 +372,14 @@ function addPhoto() {
 
 async function deletePhoto(photo: PhotoItem, idx: number) {
   if (photo.is_avatar) {
-    uni.showToast({ title: '不能删除头像照片', icon: 'none' })
+    uni.showToast({ title: '不能删除封面', icon: 'none' })
     return
   }
   if (photo.id) {
     try {
       await userApi.deletePhoto(photo.id)
     } catch (e) {
-      console.error('删除失败', e)
+      console.error(e)
     }
   }
   photos.value.splice(idx, 1)
@@ -369,13 +390,18 @@ function previewPhoto(idx: number) {
   uni.previewImage({ urls, current: urls[idx] })
 }
 
+// === 提交 ===
 async function saveProfile() {
   if (!form.nickname.trim()) {
-    uni.showToast({ title: '请输入昵称', icon: 'none' })
+    uni.showToast({ title: '请填写昵称', icon: 'none' })
     return
   }
   if (!form.gender) {
     uni.showToast({ title: '请选择性别', icon: 'none' })
+    return
+  }
+  if (!form.birthday) {
+    uni.showToast({ title: '请选择生日', icon: 'none' })
     return
   }
 
@@ -384,13 +410,13 @@ async function saveProfile() {
     const data: any = {
       nickname: form.nickname,
       gender: form.gender,
+      birthday: form.birthday,
       city: form.city || undefined,
       bio: form.bio || undefined,
       education: form.education || undefined,
       occupation: form.occupation || undefined,
       interest_ids: selectedInterests.value,
     }
-    if (form.birthday) data.birthday = form.birthday
     if (form.height) data.height = Number(form.height)
 
     await userApi.updateProfile(data)
@@ -404,7 +430,7 @@ async function saveProfile() {
       }
     }, 1000)
   } catch (e) {
-    console.error('保存失败', e)
+    console.error(e)
   } finally {
     saving.value = false
   }
@@ -412,80 +438,184 @@ async function saveProfile() {
 </script>
 
 <style scoped>
-.edit-page { min-height: 100vh; background: #f7f8fa; }
+.edit-page { 
+  min-height: 100vh; 
+  background: #f4f6f8; 
+  padding-bottom: 200rpx;
+}
 
-/* ---- 头像区域 ---- */
-.avatar-section { display: flex; flex-direction: column; align-items: center; padding: 48rpx 0 32rpx; background: linear-gradient(180deg, #fff0f3 0%, #f7f8fa 100%); }
-.avatar-wrapper { position: relative; width: 180rpx; height: 180rpx; }
-.edit-avatar { width: 180rpx; height: 180rpx; border-radius: 50%; border: 6rpx solid #fff; box-shadow: 0 8rpx 30rpx rgba(255, 107, 129, 0.25); }
-.avatar-badge { position: absolute; bottom: 4rpx; right: 4rpx; width: 52rpx; height: 52rpx; background: linear-gradient(135deg, #ff6b81, #ff4757); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 4rpx solid #fff; }
-.badge-icon { font-size: 24rpx; }
-.avatar-tip { font-size: 24rpx; color: #b3b3b3; margin-top: 16rpx; }
+/* 头像区域 */
+.avatar-section { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  padding: 60rpx 0 40rpx; 
+  background: linear-gradient(180deg, #fff 0%, #f4f6f8 100%); 
+}
+.avatar-wrapper { 
+  position: relative; 
+  width: 200rpx; 
+  height: 200rpx; 
+  margin-bottom: 16rpx;
+}
+.edit-avatar { 
+  width: 200rpx; 
+  height: 200rpx; 
+  border-radius: 50%; 
+  border: 6rpx solid #fff; 
+  box-shadow: 0 12rpx 36rpx rgba(255, 71, 87, 0.15); 
+}
+.avatar-badge { 
+  position: absolute; 
+  bottom: 0; 
+  right: 0; 
+  width: 56rpx; 
+  height: 56rpx; 
+  background: #1a1a1a; 
+  border-radius: 50%; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  border: 4rpx solid #fff; 
+  box-shadow: 0 4rpx 8rpx rgba(0,0,0,0.1);
+}
+.badge-icon { font-size: 26rpx; }
+.avatar-tip { font-size: 26rpx; color: #888; letter-spacing: 1rpx; }
 
-/* ---- 照片墙 ---- */
-.photo-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.photo-slot { position: relative; width: calc(33.33% - 11rpx); aspect-ratio: 3 / 4; border-radius: 16rpx; overflow: hidden; }
+/* 通用卡片样式 */
+.card { 
+  background: #fff; 
+  margin: 0 24rpx 24rpx; 
+  border-radius: 28rpx; 
+  padding: 36rpx; 
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.02); 
+}
+.card-title { font-size: 34rpx; font-weight: 700; color: #1a1a1a; margin-bottom: 32rpx; display: block; letter-spacing: 1rpx; }
+.card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.card-subtitle { font-size: 28rpx; color: #ff4757; font-weight: 600; }
+.section-desc { font-size: 24rpx; color: #999; margin-bottom: 24rpx; display: block; }
+
+/* 照片墙 */
+.photo-card { padding: 36rpx 24rpx; }
+.photo-grid { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
+.photo-slot { position: relative; width: calc(33.33% - 8rpx); aspect-ratio: 3 / 4; border-radius: 20rpx; overflow: hidden; background: #f8f9fa; }
 .slot-photo { width: 100%; height: 100%; }
-.slot-delete { position: absolute; top: 8rpx; right: 8rpx; width: 44rpx; height: 44rpx; border-radius: 50%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
-.delete-icon { font-size: 24rpx; color: #fff; font-weight: bold; }
-.slot-badge { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(255,107,129,0.85); padding: 6rpx 0; text-align: center; }
-.badge-text { font-size: 20rpx; color: #fff; font-weight: 600; }
-.add-slot { background: #f0f1f5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx; border: 3rpx dashed #d0d0d0; }
-.add-icon { font-size: 48rpx; color: #ccc; line-height: 1; }
-.add-text { font-size: 22rpx; color: #b3b3b3; }
-.photo-tip { font-size: 22rpx; color: #b3b3b3; margin-top: 16rpx; }
+.slot-delete { position: absolute; top: 12rpx; right: 12rpx; width: 48rpx; height: 48rpx; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.delete-icon { font-size: 22rpx; color: #fff; font-weight: 600; }
+.slot-badge { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, transparent, rgba(0,0,0,0.6)); padding: 20rpx 0 12rpx; text-align: center; }
+.badge-text { font-size: 22rpx; color: #fff; font-weight: 600; letter-spacing: 1rpx; }
+.add-slot { background: #f0f2f5; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2rpx dashed #dce0e5; }
+.add-icon { font-size: 60rpx; color: #a0a5ab; line-height: 1; font-weight: 300; }
+.photo-tip { font-size: 24rpx; color: #a0a5ab; text-align: center; display: block; margin-top: 16rpx; }
 
-/* ---- 卡片通用 ---- */
-.card { background: #fff; margin: 20rpx 24rpx; border-radius: 24rpx; padding: 32rpx; box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04); }
-.card-title { font-size: 32rpx; font-weight: 700; color: #1a1a1a; margin-bottom: 24rpx; display: block; }
-.card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx; }
-.card-subtitle { font-size: 26rpx; color: #ff6b81; font-weight: 600; }
-
-/* ---- 表单行 ---- */
-.form-row { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 0; border-bottom: 1rpx solid #f0f1f5; }
+/* 表单行设计 */
+.form-row { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  min-height: 100rpx; 
+  border-bottom: 1rpx solid #f4f6f8; 
+}
 .form-row.last { border-bottom: none; }
-.form-label { font-size: 30rpx; color: #1a1a1a; font-weight: 500; flex-shrink: 0; width: 120rpx; }
-.form-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8rpx; }
-.form-input { font-size: 28rpx; color: #1a1a1a; flex: 1; }
+.form-label { font-size: 30rpx; color: #1a1a1a; font-weight: 600; width: 140rpx; }
+.form-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
+.form-picker { flex: 1; }
+.form-input { font-size: 30rpx; color: #1a1a1a; font-weight: 500; width: 100%; }
 .form-input.right { text-align: right; }
-.form-input.short { width: 120rpx; flex: none; }
-.form-value { font-size: 28rpx; color: #1a1a1a; }
-.form-value.placeholder { color: #b3b3b3; }
-.form-arrow { font-size: 32rpx; color: #ccc; margin-left: 4rpx; }
-.form-unit { font-size: 26rpx; color: #999; }
-.hidden-picker { position: absolute; opacity: 0; width: 0; height: 0; }
+.form-value { font-size: 30rpx; color: #1a1a1a; font-weight: 500; }
+.form-value.placeholder { color: #a0a5ab; font-weight: 400; }
+.form-arrow { font-size: 36rpx; color: #c4c7cc; margin-left: 12rpx; font-weight: 300; margin-top: -4rpx; }
+.ph-color { color: #a0a5ab; }
 
-/* ---- 性别 ---- */
-.gender-group { display: flex; gap: 20rpx; }
-.gender-chip { padding: 12rpx 36rpx; border-radius: 32rpx; background: #f0f1f5; font-size: 28rpx; color: #666; transition: all 0.2s; }
-.gender-chip.active { background: linear-gradient(135deg, #ff6b81, #ff4757); color: #fff; box-shadow: 0 4rpx 16rpx rgba(255, 71, 87, 0.3); }
+/* 性别按钮 */
+.gender-group { display: flex; gap: 24rpx; justify-content: flex-end; flex: 1; }
+.gender-btn { 
+  padding: 12rpx 36rpx; 
+  border-radius: 40rpx; 
+  background: #f0f2f5; 
+  font-size: 28rpx; 
+  color: #666; 
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
+  border: 2rpx solid transparent;
+}
+.gender-icon { font-size: 32rpx; margin-top: -2rpx; }
+.gender-btn.active { 
+  background: #fff; 
+  color: #1a1a1a; 
+  border-color: #1a1a1a;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
 
-/* ---- 关于我 ---- */
+/* 关于我 */
 .bio-wrapper { position: relative; }
-.bio-input { width: 100%; min-height: 160rpx; font-size: 28rpx; color: #1a1a1a; line-height: 1.7; padding: 20rpx; background: #f7f8fa; border-radius: 16rpx; box-sizing: border-box; }
-.bio-count { position: absolute; bottom: 16rpx; right: 20rpx; font-size: 22rpx; color: #ccc; }
+.bio-input { 
+  width: 100%; 
+  min-height: 200rpx; 
+  font-size: 30rpx; 
+  color: #1a1a1a; 
+  line-height: 1.6; 
+  padding: 24rpx; 
+  background: #f8f9fa; 
+  border-radius: 20rpx; 
+  box-sizing: border-box; 
+}
+.bio-count { position: absolute; bottom: 20rpx; right: 24rpx; font-size: 24rpx; color: #a0a5ab; font-weight: 500; }
 
-/* ---- 兴趣标签 ---- */
-.interest-group { margin-bottom: 28rpx; }
+/* 兴趣标签 */
+.interest-group { margin-bottom: 36rpx; }
 .interest-group:last-child { margin-bottom: 0; }
-.group-label { font-size: 26rpx; color: #999; font-weight: 500; margin-bottom: 16rpx; display: block; }
-.tag-wall { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.tag-chip { padding: 14rpx 32rpx; border-radius: 32rpx; background: #f0f1f5; font-size: 26rpx; color: #666; transition: all 0.2s; border: 2rpx solid transparent; }
-.tag-chip.selected { background: rgba(255, 107, 129, 0.1); color: #ff4757; border-color: #ff6b81; font-weight: 600; }
+.group-label { font-size: 28rpx; color: #1a1a1a; font-weight: 600; margin-bottom: 20rpx; display: block; }
+.tag-wall { display: flex; flex-wrap: wrap; gap: 20rpx 16rpx; }
+.tag-chip { 
+  padding: 14rpx 36rpx; 
+  border-radius: 40rpx; 
+  background: #f0f2f5; 
+  font-size: 26rpx; 
+  color: #555; 
+  font-weight: 500;
+  transition: all 0.25s; 
+  border: 2rpx solid transparent; 
+}
+.tag-chip.selected { 
+  background: rgba(255, 71, 87, 0.08); 
+  color: #ff4757; 
+  border-color: #ff4757; 
+}
 
-/* ---- 底部按钮 ---- */
-.bottom-spacer { height: 160rpx; }
-.fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 20rpx 32rpx; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(247,248,250,0) 0%, rgba(247,248,250,1) 30%); }
-.save-btn { width: 100%; height: 96rpx; background: linear-gradient(135deg, #ff6b81, #ff4757); border-radius: 48rpx; color: #fff; font-size: 32rpx; font-weight: 600; letter-spacing: 2rpx; display: flex; align-items: center; justify-content: center; border: none; box-shadow: 0 8rpx 30rpx rgba(255, 71, 87, 0.35); }
+/* 底部按钮 */
+.bottom-spacer { height: constant(safe-area-inset-bottom); height: env(safe-area-inset-bottom); }
+.fixed-bottom { 
+  position: fixed; 
+  bottom: 0; 
+  left: 0; 
+  right: 0; 
+  padding: 24rpx 40rpx; 
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); 
+  background: rgba(255,255,255,0.9); 
+  backdrop-filter: blur(20px);
+  border-top: 1rpx solid rgba(0,0,0,0.05);
+  z-index: 100;
+}
+.save-btn { 
+  width: 100%; 
+  height: 96rpx; 
+  background: #1a1a1a; 
+  border-radius: 48rpx; 
+  color: #fff; 
+  font-size: 32rpx; 
+  font-weight: 600; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  border: none; 
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.15);
+  transition: transform 0.1s;
+}
+.save-btn:active { transform: scale(0.98); }
+.save-btn.is-saving { opacity: 0.8; }
 .save-btn::after { border: none; }
-
-/* ---- 底部弹窗选择器 ---- */
-.picker-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.45); z-index: 200; display: flex; align-items: flex-end; }
-.picker-sheet { width: 100%; background: #fff; border-radius: 28rpx 28rpx 0 0; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); max-height: 70vh; overflow-y: auto; }
-.picker-header { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 32rpx; border-bottom: 1rpx solid #f0f1f5; }
-.picker-cancel { font-size: 28rpx; color: #999; width: 80rpx; }
-.picker-title { font-size: 30rpx; font-weight: 600; color: #1a1a1a; }
-.picker-option { display: flex; align-items: center; justify-content: space-between; padding: 32rpx 40rpx; font-size: 30rpx; color: #333; }
-.picker-option.active { color: #ff4757; font-weight: 600; }
-.check-icon { color: #ff4757; font-size: 32rpx; font-weight: bold; }
 </style>
