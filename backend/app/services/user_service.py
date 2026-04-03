@@ -133,3 +133,16 @@ async def get_all_interests(db: AsyncSession) -> list[Interest]:
     """获取所有预定义兴趣标签"""
     result = await db.execute(select(Interest).order_by(Interest.category, Interest.id))
     return list(result.scalars().all())
+
+
+async def create_custom_interest(db: AsyncSession, name: str, category: str = "自定义") -> Interest:
+    """创建自定义兴趣标签，如果已存在同名则直接返回"""
+    result = await db.execute(select(Interest).where(Interest.name == name))
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+
+    interest = Interest(name=name, category=category, icon="✨")
+    db.add(interest)
+    await db.flush()
+    return interest

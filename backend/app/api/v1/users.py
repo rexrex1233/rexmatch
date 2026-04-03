@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.common import ResponseBase
-from app.schemas.user import ProfileUpdate, ProfileResponse, PhotoResponse, InterestResponse
+from app.schemas.user import ProfileUpdate, ProfileResponse, PhotoResponse, InterestResponse, InterestCreate
 from app.schemas.preference import PreferenceUpdate, PreferenceResponse
 from app.services import user_service
 from app.services import preference_service
@@ -111,3 +111,14 @@ async def list_interests(db: AsyncSession = Depends(get_db)):
     return ResponseBase(
         data=[InterestResponse.model_validate(i) for i in interests]
     )
+
+
+@router.post("/interests/custom", response_model=ResponseBase[InterestResponse])
+async def add_custom_interest(
+    data: InterestCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """添加自定义兴趣标签"""
+    interest = await user_service.create_custom_interest(db, data.name, data.category)
+    return ResponseBase(data=InterestResponse.model_validate(interest))

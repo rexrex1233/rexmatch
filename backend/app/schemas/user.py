@@ -54,6 +54,12 @@ class PhotoResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class InterestCreate(BaseModel):
+    """创建自定义兴趣标签"""
+    name: str = Field(..., min_length=1, max_length=20)
+    category: str = Field("自定义", max_length=20)
+
+
 class InterestResponse(BaseModel):
     """兴趣标签响应"""
     id: int
