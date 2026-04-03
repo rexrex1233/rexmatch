@@ -1,14 +1,19 @@
 <template>
   <view class="page">
-    <!-- 导航栏 -->
-    <view class="nav" :style="{ paddingTop: statusBarHeight + 'px' }" v-show="!showDetail">
-      <text class="nav-title">推荐</text>
-      <view class="nav-right">
-        <view class="like-quota" v-if="dailyRemaining >= 0">
-          <text class="quota-heart">♥</text>
-          <text class="quota-num">{{ dailyRemaining }}</text>
+    <!-- 苹果风格大标题导航栏 -->
+    <view class="nav" :style="{ paddingTop: statusBarHeight + 'px' }" :class="{ 'nav-hidden': showDetail }">
+      <view class="nav-content">
+        <text class="nav-title">推荐</text>
+        <view class="nav-right">
+          <view class="glass-pill" v-if="dailyRemaining >= 0">
+            <text class="quota-heart">💖</text>
+            <text class="quota-num">{{ dailyRemaining }}</text>
+          </view>
+          <view class="glass-circle" @tap="showFilterPanel = true">
+            <text class="icon-text">􀤆</text> <!-- 占位符，实际会用 CSS 渲染个类似滤镜的图标或直接用文字/emoji -->
+            <text>⚙️</text>
+          </view>
         </view>
-        <view class="nav-btn" @tap="showFilterPanel = true"><text>⚙</text></view>
       </view>
     </view>
 
@@ -30,7 +35,7 @@
           :scroll-y="showDetail" 
           :show-scrollbar="false"
         >
-          <!-- 英雄区域 (照片 + 渐变) -->
+          <!-- 英雄区域 (照片 + 毛玻璃渐变) -->
           <view 
             class="hero-area" 
             @touchstart="onHeroTouchStart"
@@ -39,52 +44,61 @@
             @tap="!showDetail && toggleDetail()"
           >
             <image class="hero-bg" :src="currentCard.photos?.[0]?.url || currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
+            
+            <!-- 底部柔和阴影，保证文字可读性 -->
             <view class="hero-fade"></view>
             
             <!-- 用户头部信息 (悬浮在渐变上) -->
             <view class="hero-user-info">
-              <image class="hu-avatar" :src="currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
+              <view class="hu-avatar-container">
+                <image class="hu-avatar" :src="currentCard.avatar_url || defaultAvatar" mode="aspectFill" />
+                <view class="hu-online-badge" v-if="currentCard.is_online"></view>
+              </view>
+              
               <view class="hu-details">
                 <view class="hu-name-row">
                   <text class="hu-name">{{ currentCard.nickname }}</text>
-                  <view class="hu-verified"><text>✔</text></view>
+                  <view class="hu-verified"><text>✓</text></view>
                 </view>
-                <view class="hu-meta">
-                  <view class="online-dot" v-if="currentCard.is_online"></view>
-                  <text v-if="currentCard.is_online">在线</text>
-                  <text class="divider" v-if="currentCard.is_online">|</text>
+                
+                <!-- 苹果毛玻璃信息胶囊 -->
+                <view class="hu-meta glass-morphism">
                   <text v-if="currentCard.age">{{ currentCard.age }}岁</text>
                   <text class="divider" v-if="currentCard.age && currentCard.city">·</text>
-                  <text class="text-ellipsis" style="max-width: 180rpx;" v-if="currentCard.city">{{ currentCard.city }}</text>
+                  <text class="text-ellipsis" style="max-width: 200rpx;" v-if="currentCard.city">{{ currentCard.city }}</text>
+                  <text class="divider" v-if="currentCard.city && currentCard.education">·</text>
+                  <text v-if="currentCard.education">{{ currentCard.education }}</text>
                 </view>
               </view>
             </view>
 
-            <!-- 滑动标签 -->
+            <!-- 滑动标签 (保持高对比度) -->
             <view class="swipe-tag like-tag" :style="{ opacity: likeOp }"><text>LIKE</text></view>
             <view class="swipe-tag nope-tag" :style="{ opacity: nopeOp }"><text>NOPE</text></view>
             
-            <!-- 展开时的关闭按钮 -->
-            <view class="close-btn" v-if="showDetail" @tap.stop="toggleDetail" :style="{ top: (statusBarHeight + 10) + 'px' }">
+            <!-- 展开时的毛玻璃关闭按钮 -->
+            <view class="close-btn glass-morphism" v-if="showDetail" @tap.stop="toggleDetail" :style="{ top: (statusBarHeight + 10) + 'px' }">
               <text class="cb-icon">↓</text>
             </view>
           </view>
 
-          <!-- 资料内容区 (纯白背景) -->
+          <!-- 资料内容区 -->
           <view class="profile-body" @tap="!showDetail && toggleDetail()">
             
-            <!-- 契合度推荐 -->
+            <!-- 契合度推荐 (Apple 风格强调文本层级) -->
             <view class="pb-section pb-compat" v-if="currentCard.compatibility && currentCard.compatibility.score > 0">
-              <text class="compat-text">根据你的偏好 </text>
-              <text class="compat-highlight">{{ currentCard.compatibility.shared_interests?.join('、') || '多个共同点' }}</text>
-              <text class="compat-text"> 推荐</text>
+              <text class="compat-icon">✨</text>
+              <view class="compat-text-group">
+                <text class="compat-title">高度契合</text>
+                <text class="compat-desc">基于你们共同喜欢的 {{ currentCard.compatibility.shared_interests?.join('、') || '多个特质' }}</text>
+              </view>
             </view>
 
-            <!-- 兴趣标签 -->
+            <!-- 兴趣标签 (柔和圆润胶囊) -->
             <view class="pb-section pb-tags" v-if="currentCard.interests?.length">
               <view 
                 class="tag-capsule" 
-                :class="i < 3 ? 'gradient-tag' : 'plain-tag'" 
+                :class="i < 3 ? 'tag-primary' : 'tag-secondary'" 
                 v-for="(t, i) in currentCard.interests" 
                 :key="i"
               >
@@ -97,16 +111,16 @@
 
             <!-- 关于我 -->
             <view class="pb-section pb-bio" v-if="currentCard.bio">
-              <text class="section-title">关于我</text>
+              <text class="apple-section-title">关于我</text>
               <text class="bio-text" :class="{'line-clamp-3': !showDetail}">{{ currentCard.bio }}</text>
             </view>
 
             <!-- 详细资料 (展开后显示) -->
             <view class="pb-extended" v-if="showDetail">
               
-              <!-- 基础信息 -->
-              <view class="d-card">
-                <text class="d-title">基础资料</text>
+              <!-- 基础信息 (大圆角卡片) -->
+              <view class="apple-card">
+                <text class="apple-section-title">基础资料</text>
                 <view class="d-grid">
                   <view class="d-item" v-if="currentCard.height"><text class="d-icon">📏</text><text>{{ currentCard.height }} cm</text></view>
                   <view class="d-item" v-if="currentCard.education"><text class="d-icon">🎓</text><text>{{ currentCard.education }}</text></view>
@@ -117,9 +131,9 @@
                 </view>
               </view>
 
-              <!-- 相册 -->
-              <view class="d-card" v-if="currentCard.photos?.length > 1">
-                <text class="d-title">生活相册</text>
+              <!-- 相册 (无缝圆角边缘) -->
+              <view class="apple-card" v-if="currentCard.photos?.length > 1">
+                <text class="apple-section-title">生活相册</text>
                 <view class="d-photos">
                   <image 
                     class="d-photo" 
@@ -132,11 +146,10 @@
                 </view>
               </view>
 
-              <!-- 举报拉黑 -->
+              <!-- 举报拉黑 (Apple 风格 Destructive 按钮) -->
               <view class="d-actions-link">
-                <text class="d-link" @tap.stop="reportUser">举报该用户</text>
-                <text class="d-divider">|</text>
-                <text class="d-link" @tap.stop="blockUser">拉黑该用户</text>
+                <text class="d-link destructive" @tap.stop="reportUser">举报该用户</text>
+                <text class="d-link destructive" @tap.stop="blockUser">拉黑该用户</text>
               </view>
               
               <view class="detail-bottom-space"></view>
@@ -145,31 +158,26 @@
           </view>
         </scroll-view>
 
-        <!-- 未展开时的渐变遮罩提示 -->
+        <!-- 未展开时的向上滑动指示 -->
         <view class="body-fade-out" v-if="!showDetail" @tap="toggleDetail">
-          <view class="expand-hint">
-            <text>点击或上滑查看详细资料</text>
-            <text class="arrow-down">⌄</text>
+          <view class="expand-hint glass-morphism-light">
+            <text>上滑查看详细资料</text>
           </view>
         </view>
       </view>
       
-      <!-- 右侧悬浮操作栏 -->
+      <!-- 右侧悬浮操作栏 (Apple Glassmorphism) -->
       <view class="right-actions" :class="{'actions-expanded': showDetail}">
-        <!-- Gift Button -->
-        <view class="r-btn gift" @tap.stop="handleGift">
-          <text class="r-icon">🌸</text>
+        <view class="r-btn glass-morphism gift" @tap.stop="handleGift">
+          <text class="r-icon">🎁</text>
         </view>
-        <!-- Like Button -->
-        <view class="r-btn like" @tap.stop="animateLike">
+        <view class="r-btn glass-morphism like primary-pop" @tap.stop="animateLike">
           <text class="r-icon">❤️</text>
         </view>
-        <!-- Later Button -->
-        <view class="r-btn later" @tap.stop="handleLater">
+        <view class="r-btn glass-morphism later" @tap.stop="handleLater">
           <text class="r-icon">💤</text>
         </view>
-        <!-- Nope Button -->
-        <view class="r-btn nope" @tap.stop="animateSkip">
+        <view class="r-btn glass-morphism nope" @tap.stop="animateSkip">
           <text class="r-icon">✖</text>
         </view>
       </view>
@@ -178,30 +186,42 @@
 
     <!-- 空状态 -->
     <view class="empty" v-if="!currentCard && !loading">
-      <view class="empty-ring"><text>💫</text></view>
-      <text class="empty-t">暂时没有更多推荐</text>
-      <text class="empty-s">完善资料或调整偏好获得更多推荐</text>
-      <view class="empty-btn" @tap="goEditProfile"><text>完善资料</text></view>
+      <view class="empty-ring"><text>✨</text></view>
+      <text class="empty-t">暂无推荐</text>
+      <text class="empty-s">你已经看完了所有的推荐，调整偏好或稍后再来吧</text>
+      <view class="apple-btn" @tap="goEditProfile"><text>完善资料</text></view>
     </view>
 
     <MatchModal :visible="showMatchModal" @close="closeMatchModal" @chat="goToChat" />
 
-    <!-- 筛选 -->
+    <!-- 筛选 (Apple Bottom Sheet Style) -->
     <view class="mask" v-if="showFilterPanel" @tap="showFilterPanel = false">
       <view class="sheet" @tap.stop>
-        <view class="sheet-top"><text class="sh">筛选条件</text><text class="sr" @tap="resetFilters">重置</text></view>
-        <view class="sg"><text class="sl">性别</text><view class="sc-row">
-          <view :class="['sc',{on:filterGender===null}]" @tap="filterGender=null"><text>不限</text></view>
-          <view :class="['sc',{on:filterGender===1}]" @tap="filterGender=1"><text>男</text></view>
-          <view :class="['sc',{on:filterGender===2}]" @tap="filterGender=2"><text>女</text></view>
-        </view></view>
-        <view class="sg"><text class="sl">年龄</text><view class="sc-row">
-          <view :class="['sc',{on:filterAge===null}]" @tap="filterAge=null"><text>不限</text></view>
-          <view :class="['sc',{on:filterAge===`18-25`}]" @tap="filterAge='18-25'"><text>18-25</text></view>
-          <view :class="['sc',{on:filterAge===`25-30`}]" @tap="filterAge='25-30'"><text>25-30</text></view>
-          <view :class="['sc',{on:filterAge===`30-40`}]" @tap="filterAge='30-40'"><text>30-40</text></view>
-        </view></view>
-        <view class="sa"><view class="sbtn" @tap="applyFilters"><text>确定</text></view></view>
+        <view class="sheet-handle"></view>
+        <view class="sheet-top">
+          <text class="sh">偏好设置</text>
+          <text class="sr" @tap="resetFilters">重置</text>
+        </view>
+        <view class="sg">
+          <text class="sl">希望认识</text>
+          <view class="sc-row">
+            <view :class="['sc',{on:filterGender===null}]" @tap="filterGender=null"><text>不限</text></view>
+            <view :class="['sc',{on:filterGender===1}]" @tap="filterGender=1"><text>男生</text></view>
+            <view :class="['sc',{on:filterGender===2}]" @tap="filterGender=2"><text>女生</text></view>
+          </view>
+        </view>
+        <view class="sg">
+          <text class="sl">年龄范围</text>
+          <view class="sc-row">
+            <view :class="['sc',{on:filterAge===null}]" @tap="filterAge=null"><text>不限</text></view>
+            <view :class="['sc',{on:filterAge===`18-25`}]" @tap="filterAge='18-25'"><text>18-25</text></view>
+            <view :class="['sc',{on:filterAge===`25-30`}]" @tap="filterAge='25-30'"><text>25-30</text></view>
+            <view :class="['sc',{on:filterAge===`30-40`}]" @tap="filterAge='30-40'"><text>30-40</text></view>
+          </view>
+        </view>
+        <view class="sa">
+          <view class="apple-btn primary" @tap="applyFilters"><text>完成</text></view>
+        </view>
       </view>
     </view>
   </view>
@@ -244,7 +264,9 @@ const likeOp = computed(() => Math.min(Math.max(cardOffsetX.value / THRESHOLD, 0
 const nopeOp = computed(() => Math.min(Math.max(-cardOffsetX.value / THRESHOLD, 0), 1))
 const cardStyle = computed(() => {
   if (cardOffsetX.value === 0 && cardOffsetY.value === 0 && cardOpacity.value === 1 && !showDetail.value) return ''
-  return `transform:translate(${cardOffsetX.value}px, ${cardOffsetY.value}px) rotate(${cardRotate.value}deg);opacity:${cardOpacity.value};transition:${isSwiping.value ? 'none' : 'all .4s cubic-bezier(0.2, 0.8, 0.2, 1)'};`
+  // 苹果风格的弹性过渡动画 (Spring-like transition)
+  const transition = isSwiping.value ? 'none' : 'all 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+  return `transform:translate(${cardOffsetX.value}px, ${cardOffsetY.value}px) rotate(${cardRotate.value}deg) scale(${isSwiping.value ? 0.98 : 1}); opacity:${cardOpacity.value}; transition:${transition};`
 })
 
 onMounted(() => {
@@ -276,8 +298,8 @@ function onHeroTouchMove(e: any) {
   const dx = e.touches[0].clientX - touchStartX.value
   const dy = e.touches[0].clientY - touchStartY.value
   
-  // 上滑超过一定距离，展开详情
-  if (!isSwiping.value && dy < -30 && Math.abs(dy) > Math.abs(dx)) {
+  // 上滑超过一定距离，展开详情 (增加一点阻尼感)
+  if (!isSwiping.value && dy < -40 && Math.abs(dy) > Math.abs(dx)) {
     toggleDetail()
     return
   }
@@ -286,8 +308,10 @@ function onHeroTouchMove(e: any) {
     isSwiping.value = true
   }
   if (isSwiping.value) { 
-    cardOffsetX.value = dx
-    cardRotate.value = dx * 0.04 
+    // 加入阻尼效果，让滑动感觉更有重量
+    const dampening = 0.8
+    cardOffsetX.value = dx * dampening
+    cardRotate.value = (dx * 0.03) * dampening
   }
 }
 
@@ -314,7 +338,7 @@ function animateLike() {
   cardOffsetX.value = 500
   cardRotate.value = 15
   cardOpacity.value = 0
-  setTimeout(() => { handleLike(); resetCard() }, 300) 
+  setTimeout(() => { handleLike(); resetCard() }, 400) // 延长一点以配合 spring 动画
 }
 
 function animateSkip() { 
@@ -324,7 +348,7 @@ function animateSkip() {
   cardOffsetX.value = -500
   cardRotate.value = -15
   cardOpacity.value = 0
-  setTimeout(() => { handleSkip(); resetCard() }, 300) 
+  setTimeout(() => { handleSkip(); resetCard() }, 400) 
 }
 
 function handleLater() {
@@ -334,11 +358,10 @@ function handleLater() {
   cardOffsetY.value = 800 // 向下滑出屏幕
   cardOpacity.value = 0
   setTimeout(() => {
-    // 仅本地跳过，不调后端接口，下次请求还会回来
     currentIndex.value++
     showNext()
     resetCard()
-  }, 300)
+  }, 400)
 }
 
 function handleGift() {
@@ -386,7 +409,7 @@ async function fetchDailyLikes() {
 async function handleLike() {
   if (!currentCard.value) return
   if (dailyRemaining.value === 0) {
-    uni.showToast({ title: `今日 ${dailyLimit.value} 次喜欢已用完`, icon: 'none', duration: 2500 })
+    uni.showToast({ title: `今日喜欢额度已用完`, icon: 'none', duration: 2500 })
     return
   }
   try {
@@ -419,7 +442,7 @@ function reportUser() {
   const uid = currentCard.value?.user_id
   if (!uid) return
   uni.showModal({ 
-    title: '举报用户', content: '确定举报？', confirmColor: '#ff4757', 
+    title: '举报', content: '确定举报该用户？', confirmColor: '#FF3B30', 
     success(r) { 
       if (r.confirm) {
         reportApi.submit(uid, '不当行为').then(() => { 
@@ -435,7 +458,7 @@ function blockUser() {
   const uid = currentCard.value?.user_id
   if (!uid) return
   uni.showModal({ 
-    title: '拉黑用户', content: '拉黑后不再看到对方', confirmColor: '#ff4757', 
+    title: '拉黑', content: '拉黑后将不再向您推荐此人', confirmColor: '#FF3B30', 
     success(r) { 
       if (r.confirm) {
         reportApi.block(uid).then(() => { 
@@ -463,47 +486,88 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 </script>
 
 <style scoped>
+/* 全局页面背景：Apple Secondary System Background */
 .page { 
   height: 100vh; 
-  background: #fdfdfd; 
+  background: #F2F2F7; 
   display: flex; 
   flex-direction: column; 
   overflow: hidden; 
   box-sizing: border-box; 
   padding-bottom: calc(env(safe-area-inset-bottom) + 100rpx); 
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 /* #ifdef H5 */
 .page { padding-bottom: 50px; }
 /* #endif */
 
-/* 导航 */
-.nav { display: flex; align-items: center; justify-content: space-between; height: 88rpx; padding: 0 32rpx; position: relative; z-index: 10; flex-shrink: 0; }
-.nav-title { font-size: 40rpx; font-weight: 800; color: #1a1a1a; letter-spacing: 2rpx; }
-.nav-right { display: flex; align-items: center; gap: 20rpx; }
-.like-quota { display: flex; align-items: center; gap: 6rpx; padding: 8rpx 20rpx; border-radius: 30rpx; background: #fff; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05); }
-.quota-heart { font-size: 24rpx; color: #ff4757; }
-.quota-num { font-size: 26rpx; color: #1a1a1a; font-weight: 700; }
-.nav-btn { width: 60rpx; height: 60rpx; border-radius: 50%; background: #fff; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; font-size: 30rpx; color: #1a1a1a; }
+/* ====== 毛玻璃通用样式 (Apple Glassmorphism) ====== */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 0.5px solid rgba(255, 255, 255, 0.4);
+}
+.glass-morphism-light {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
+}
 
-/* 卡片容器 */
+/* ====== 顶部导航栏 (Apple Large Title) ====== */
+.nav { 
+  padding: 0 32rpx 16rpx; 
+  position: relative; 
+  z-index: 10; 
+  flex-shrink: 0; 
+  transition: opacity 0.3s, transform 0.3s;
+}
+.nav-hidden { opacity: 0; transform: translateY(-20rpx); pointer-events: none; }
+.nav-content { display: flex; align-items: flex-end; justify-content: space-between; height: 88rpx; }
+.nav-title { font-size: 64rpx; font-weight: 800; color: #000000; letter-spacing: -2rpx; line-height: 1; }
+.nav-right { display: flex; align-items: center; gap: 16rpx; margin-bottom: 4rpx; }
+
+.glass-pill { 
+  display: flex; align-items: center; gap: 8rpx; padding: 12rpx 24rpx; 
+  border-radius: 40rpx; 
+  background: #FFFFFF; 
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04);
+}
+.quota-heart { font-size: 24rpx; }
+.quota-num { font-size: 26rpx; color: #000; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.glass-circle { 
+  width: 64rpx; height: 64rpx; 
+  border-radius: 50%; 
+  background: #FFFFFF; 
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04); 
+  display: flex; align-items: center; justify-content: center; 
+  font-size: 32rpx; 
+  color: #000; 
+}
+.icon-text { display: none; } /* 隐藏占位符 */
+
+/* ====== 卡片容器与主卡片 (Large Squircles) ====== */
 .card-wrap {
   flex: 1;
   position: relative;
   z-index: 5;
+  padding: 0 16rpx; /* 外层留白 */
 }
 
-/* 主卡片 */
 .card { 
   position: absolute;
-  top: 12rpx; left: 16rpx; right: 16rpx; bottom: 12rpx;
-  border-radius: 40rpx; 
-  background: #fff;
+  top: 0; left: 16rpx; right: 16rpx; bottom: 16rpx;
+  border-radius: 48rpx; /* Apple 风格的大圆角 */
+  background: #FFFFFF;
   overflow: hidden; 
   will-change: transform, opacity; 
-  box-shadow: 0 12rpx 40rpx rgba(0,0,0,0.08);
+  box-shadow: 0 16rpx 48rpx rgba(0,0,0,0.06), 0 2rpx 8rpx rgba(0,0,0,0.04); /* 弥散多重阴影 */
 }
 .card.is-expanded {
-  top: 0; left: 0; right: 0; bottom: -100rpx; /* 盖住 tabbar */
+  top: -88rpx; /* 盖住导航栏 */
+  left: 0; right: 0; bottom: -100rpx; 
   border-radius: 0;
   z-index: 100;
 }
@@ -511,36 +575,31 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .card.is-expanded { bottom: -50px; }
 /* #endif */
 
-.card-scroll {
-  width: 100%;
-  height: 100%;
-}
+.card-scroll { width: 100%; height: 100%; }
 
-/* 英雄区域 (照片) */
+/* ====== 英雄区域 (照片) ====== */
 .hero-area {
   position: relative;
   width: 100%;
-  height: 55vh;
-  background: #f7f8fa;
-  transition: height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  height: 60vh;
+  background: #E5E5EA; /* 骨架加载时的颜色 */
+  transition: height 0.5s cubic-bezier(0.32, 0.72, 0, 1);
   overflow: hidden;
 }
 .card.is-expanded .hero-area {
-  height: 60vh;
+  height: 65vh;
 }
-.hero-bg { 
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-}
+.hero-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .hero-fade { 
-  position: absolute; bottom: -2rpx; left: 0; right: 0; height: 280rpx; 
-  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%); 
+  position: absolute; bottom: 0; left: 0; right: 0; height: 360rpx; 
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.7) 100%); 
   pointer-events: none; 
 }
 
-/* 用户头部信息 (悬浮) */
+/* ====== 用户头部信息 (悬浮毛玻璃) ====== */
 .hero-user-info {
   position: absolute;
-  bottom: 24rpx;
+  bottom: 40rpx;
   left: 32rpx;
   right: 32rpx;
   display: flex;
@@ -548,180 +607,185 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
   gap: 24rpx;
   z-index: 10;
 }
+.hu-avatar-container { position: relative; flex-shrink: 0; }
 .hu-avatar {
-  width: 160rpx;
-  height: 160rpx;
+  width: 140rpx; height: 140rpx;
   border-radius: 50%;
-  border: 6rpx solid #fff;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.1);
-  flex-shrink: 0;
-  background: #fff;
+  border: 4rpx solid #FFFFFF;
+  background: #FFFFFF;
 }
-.hu-details {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.hu-online-badge {
+  position: absolute; bottom: 8rpx; right: 8rpx;
+  width: 24rpx; height: 24rpx;
+  border-radius: 50%;
+  background: #34C759; /* Apple Green */
+  border: 4rpx solid #FFFFFF;
 }
+
+.hu-details { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .hu-name-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 12rpx; }
-.hu-name { font-size: 44rpx; font-weight: 800; color: #1a1a1a; }
+.hu-name { font-size: 52rpx; font-weight: 800; color: #FFFFFF; letter-spacing: 1rpx; text-shadow: 0 4rpx 16rpx rgba(0,0,0,0.2); }
 .hu-verified { 
-  width: 32rpx; height: 32rpx; border-radius: 50%; background: #1890ff; color: #fff; 
+  width: 36rpx; height: 36rpx; border-radius: 50%; background: #007AFF; color: #FFFFFF; 
   display: flex; align-items: center; justify-content: center; 
 }
-.hu-verified text { font-size: 20rpx; font-weight: bold; }
+.hu-verified text { font-size: 22rpx; font-weight: 800; }
 
 .hu-meta { 
-  display: inline-flex; align-items: center; background: rgba(0,0,0,0.45); 
-  backdrop-filter: blur(10px); padding: 10rpx 24rpx; border-radius: 30rpx; gap: 10rpx; 
+  display: inline-flex; align-items: center; 
+  padding: 12rpx 28rpx; border-radius: 32rpx; gap: 12rpx; 
 }
-.hu-meta text { color: #fff; font-size: 24rpx; font-weight: 500; }
-.online-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #07c160; }
-.divider { color: rgba(255,255,255,0.6); font-size: 20rpx; margin: 0 4rpx; }
+.hu-meta text { color: #1C1C1E; font-size: 24rpx; font-weight: 600; }
+.divider { color: rgba(0,0,0,0.3) !important; font-size: 24rpx; }
 .text-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 悬浮标签 */
-.swipe-tag { position: absolute; top: 120rpx; z-index: 50; padding: 12rpx 36rpx; border-radius: 16rpx; border: 8rpx solid; font-size: 56rpx; font-weight: 900; letter-spacing: 4rpx; pointer-events: none; }
-.like-tag { left: 40rpx; color: #ff4757; border-color: #ff4757; transform: rotate(-15deg); }
-.nope-tag { right: 40rpx; color: #1a1a1a; border-color: #1a1a1a; transform: rotate(15deg); }
+/* ====== 悬浮滑动标签 ====== */
+.swipe-tag { position: absolute; top: 120rpx; z-index: 50; padding: 12rpx 40rpx; border-radius: 16rpx; border: 8rpx solid; font-size: 64rpx; font-weight: 900; letter-spacing: 4rpx; pointer-events: none; }
+.like-tag { left: 40rpx; color: #34C759; border-color: #34C759; transform: rotate(-15deg); }
+.nope-tag { right: 40rpx; color: #FF3B30; border-color: #FF3B30; transform: rotate(15deg); }
 
 .close-btn {
   position: absolute;
   right: 32rpx;
-  width: 80rpx; height: 80rpx;
+  width: 72rpx; height: 72rpx;
   border-radius: 50%;
-  background: rgba(255,255,255,0.5);
-  backdrop-filter: blur(10px);
   display: flex; align-items: center; justify-content: center;
   z-index: 20;
 }
-.cb-icon { font-size: 40rpx; color: #333; font-weight: bold; }
+.cb-icon { font-size: 32rpx; color: #000; font-weight: 700; }
 
-
-/* 资料内容区 */
+/* ====== 资料内容区 ====== */
 .profile-body {
-  background: #ffffff;
-  padding: 10rpx 140rpx 60rpx 40rpx; /* right padding leaves space for floating actions */
+  background: #FFFFFF;
+  padding: 40rpx 140rpx 80rpx 32rpx; /* 右侧留白给悬浮按钮 */
   min-height: 40vh;
 }
 
-.pb-section { margin-bottom: 32rpx; }
-.pb-compat { line-height: 1.5; }
-.compat-text { font-size: 26rpx; color: #999; }
-.compat-highlight { font-size: 26rpx; color: #ff4757; font-weight: 700; margin: 0 4rpx; }
+.pb-section { margin-bottom: 40rpx; }
 
+/* 契合度 */
+.pb-compat { 
+  display: flex; align-items: flex-start; gap: 16rpx;
+  padding: 24rpx; background: #FFF5F7; border-radius: 24rpx; 
+}
+.compat-icon { font-size: 32rpx; margin-top: 4rpx; }
+.compat-text-group { display: flex; flex-direction: column; gap: 6rpx; }
+.compat-title { font-size: 28rpx; color: #FF2D55; font-weight: 700; }
+.compat-desc { font-size: 26rpx; color: #FF2D55; opacity: 0.8; line-height: 1.4; }
+
+/* 兴趣标签 */
 .pb-tags { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .tag-capsule {
-  padding: 12rpx 32rpx; border-radius: 40rpx; font-size: 26rpx; font-weight: 500; 
-  display: inline-flex; align-items: center; gap: 8rpx;
+  padding: 14rpx 32rpx; border-radius: 40rpx; font-size: 26rpx; font-weight: 600; 
+  display: inline-flex; align-items: center; gap: 10rpx;
 }
-.gradient-tag {
-  background: linear-gradient(135deg, #ff6b81, #ff4757); color: #fff; 
-  box-shadow: 0 4rpx 12rpx rgba(255,107,129,0.3);
+.tag-primary {
+  background: linear-gradient(135deg, #FF2D55, #FF375F); color: #FFFFFF; 
+  box-shadow: 0 4rpx 12rpx rgba(255,45,85,0.25);
 }
-.plain-tag { background: #f4f6f8; color: #666; }
-.tag-icon { font-size: 24rpx; }
+.tag-secondary { background: #F2F2F7; color: #1C1C1E; }
+.tag-icon { font-size: 26rpx; }
 
-.section-title { font-size: 26rpx; color: #999; font-weight: 600; margin-bottom: 16rpx; display: block; }
-.bio-text { font-size: 30rpx; color: #333; line-height: 1.6; }
+/* 关于我与标题 */
+.apple-section-title { font-size: 34rpx; color: #000000; font-weight: 700; margin-bottom: 20rpx; display: block; letter-spacing: -0.5rpx; }
+.bio-text { font-size: 30rpx; color: #3A3A3C; line-height: 1.6; font-weight: 400; }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* 详细资料 */
+/* ====== 详细资料 (展开后) ====== */
 .pb-extended {
-  margin-top: 40rpx;
-  margin-right: -100rpx; /* compensate for the profile-body right padding to make cards full width */
+  margin-top: 48rpx;
+  margin-right: -108rpx; /* 抵消右侧留白，让卡片占满宽度 */
 }
-.d-card {
-  background: #fdfdfd;
+.apple-card {
+  background: #F2F2F7;
   margin-bottom: 32rpx;
   padding: 32rpx;
-  border-radius: 24rpx;
-  border: 1rpx solid #f0f0f0;
+  border-radius: 32rpx;
 }
-.d-title { font-size: 28rpx; font-weight: 800; color: #1a1a1a; margin-bottom: 24rpx; display: block; }
 .d-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.d-item { padding: 12rpx 28rpx; background: #f4f6f8; border-radius: 30rpx; font-size: 26rpx; color: #333; font-weight: 500; display: flex; gap: 12rpx; }
-.d-icon { color: #888; }
+.d-item { padding: 14rpx 28rpx; background: #FFFFFF; border-radius: 32rpx; font-size: 26rpx; color: #1C1C1E; font-weight: 500; display: flex; gap: 12rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02); }
 
 .d-photos { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.d-photo { width: calc(33.33% - 11rpx); height: 220rpx; border-radius: 16rpx; }
+.d-photo { width: calc(33.33% - 11rpx); height: 240rpx; border-radius: 24rpx; }
 
-.d-actions-link { display: flex; justify-content: center; gap: 32rpx; margin-top: 60rpx; margin-bottom: 40rpx; padding-right: 100rpx; }
-.d-link { font-size: 26rpx; color: #999; font-weight: 500; }
-.d-divider { color: #dce0e5; }
+/* Destructive Actions */
+.d-actions-link { display: flex; flex-direction: column; align-items: center; gap: 32rpx; margin-top: 80rpx; margin-bottom: 60rpx; padding-right: 108rpx; }
+.d-link { font-size: 30rpx; font-weight: 600; padding: 20rpx 0; }
+.destructive { color: #FF3B30; }
 .detail-bottom-space { height: 120rpx; }
 
-/* 未展开时的渐变遮罩提示 */
+/* ====== 向上滑动指示 ====== */
 .body-fade-out {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  height: 160rpx;
+  height: 140rpx;
   background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 80%);
   display: flex; align-items: flex-end; justify-content: center;
-  padding-bottom: 20rpx;
+  padding-bottom: 24rpx;
   z-index: 20;
-  border-radius: 0 0 40rpx 40rpx;
 }
-.expand-hint { display: flex; flex-direction: column; align-items: center; opacity: 0.5; gap: 2rpx; }
-.expand-hint text { font-size: 24rpx; color: #1a1a1a; font-weight: 600; letter-spacing: 2rpx; }
-.arrow-down { font-size: 28rpx; font-weight: bold; animation: bounce 1.5s infinite; }
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8rpx); } }
+.expand-hint { 
+  padding: 12rpx 32rpx; border-radius: 40rpx; 
+}
+.expand-hint text { font-size: 24rpx; color: #1C1C1E; font-weight: 600; }
 
-/* 右侧悬浮操作栏 */
+/* ====== 右侧悬浮操作栏 (Apple Layout) ====== */
 .right-actions {
   position: absolute;
   right: 24rpx;
-  bottom: 180rpx;
+  bottom: 200rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 32rpx;
   z-index: 100;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .right-actions.actions-expanded {
   bottom: 100rpx;
+  transform: scale(0.9);
+  opacity: 0.5;
 }
 .r-btn {
-  width: 90rpx; height: 90rpx;
+  width: 96rpx; height: 96rpx;
   border-radius: 50%;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.12);
   display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
+  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.1);
 }
 .r-btn:active { transform: scale(0.85); }
-.r-btn.like { width: 110rpx; height: 110rpx; } /* Like 更大一点 */
+.r-btn.like { width: 120rpx; height: 120rpx; margin: 10rpx 0; } 
 .r-btn.gift .r-icon { font-size: 40rpx; }
-.r-btn.like .r-icon { font-size: 50rpx; margin-top: 4rpx; }
-.r-btn.later .r-icon { font-size: 36rpx; }
-.r-btn.nope .r-icon { color: #888; font-size: 32rpx; font-weight: bold; }
+.r-btn.like .r-icon { font-size: 56rpx; margin-top: 4rpx; }
+.r-btn.later .r-icon { font-size: 40rpx; }
+.r-btn.nope .r-icon { color: #8E8E93; font-size: 32rpx; font-weight: 800; }
+.primary-pop { border: 2rpx solid #FF2D55; }
 
-
-/* 骨架与空状态 */
-.sk { flex: 1; margin: 12rpx 16rpx; border-radius: 32rpx; overflow: hidden; }
+/* ====== 骨架与空状态 ====== */
+.sk { flex: 1; margin: 0 16rpx 16rpx; border-radius: 48rpx; overflow: hidden; }
 .sk-card { width: 100%; height: 100%; }
 @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-.shimmer { background: linear-gradient(90deg,#e8e8e8 25%,#f5f5f5 50%,#e8e8e8 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+.shimmer { background: linear-gradient(90deg,#E5E5EA 25%,#F2F2F7 50%,#E5E5EA 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 
-.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 60rpx; background: #fdfdfd; }
-.empty-ring { width: 160rpx; height: 160rpx; border-radius: 50%; background: #fff; box-shadow: 0 12rpx 32rpx rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; margin-bottom: 32rpx; font-size: 64rpx; }
-.empty-t { font-size: 36rpx; font-weight: 800; color: #1a1a1a; margin-bottom: 12rpx; }
-.empty-s { font-size: 28rpx; color: #999; margin-bottom: 48rpx; text-align: center; }
-.empty-btn { padding: 24rpx 64rpx; border-radius: 48rpx; background: #1a1a1a; color: #fff; font-size: 30rpx; font-weight: 600; box-shadow: 0 12rpx 24rpx rgba(0,0,0,0.15); }
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 60rpx; background: #F2F2F7; }
+.empty-ring { width: 160rpx; height: 160rpx; border-radius: 50%; background: #FFFFFF; box-shadow: 0 16rpx 48rpx rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center; margin-bottom: 40rpx; font-size: 64rpx; }
+.empty-t { font-size: 40rpx; font-weight: 800; color: #000; margin-bottom: 16rpx; letter-spacing: -0.5rpx; }
+.empty-s { font-size: 30rpx; color: #8E8E93; margin-bottom: 60rpx; text-align: center; line-height: 1.5; }
+.apple-btn { padding: 28rpx 80rpx; border-radius: 60rpx; background: #000000; color: #FFFFFF; font-size: 32rpx; font-weight: 700; box-shadow: 0 16rpx 32rpx rgba(0,0,0,0.15); transition: transform 0.2s; }
+.apple-btn:active { transform: scale(0.95); }
+.apple-btn.primary { background: #FF2D55; width: 100%; text-align: center; box-shadow: 0 16rpx 32rpx rgba(255,45,85,0.3); }
 
-/* 筛选 */
+/* ====== 苹果底部弹窗 (Bottom Sheet) ====== */
 .mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: flex-end; }
-.sheet { width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0; padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); }
-.sheet-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40rpx; }
-.sh { font-size: 36rpx; font-weight: 800; color: #1a1a1a; }
-.sr { font-size: 28rpx; color: #999; font-weight: 500; }
-.sg { margin-bottom: 32rpx; }
-.sl { font-size: 26rpx; color: #888; margin-bottom: 20rpx; display: block; font-weight: 500; }
+.sheet { width: 100%; background: #FFFFFF; border-radius: 48rpx 48rpx 0 0; padding: 24rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); position: relative; }
+.sheet-handle { width: 80rpx; height: 10rpx; border-radius: 10rpx; background: #E5E5EA; margin: 0 auto 32rpx; }
+.sheet-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 48rpx; }
+.sh { font-size: 40rpx; font-weight: 800; color: #000000; }
+.sr { font-size: 32rpx; color: #FF2D55; font-weight: 600; }
+.sg { margin-bottom: 40rpx; }
+.sl { font-size: 30rpx; color: #000000; margin-bottom: 24rpx; display: block; font-weight: 700; }
 .sc-row { display: flex; gap: 20rpx; flex-wrap: wrap; }
-.sc { padding: 14rpx 36rpx; border-radius: 40rpx; background: #f0f2f5; font-size: 28rpx; color: #555; font-weight: 500; }
-.sc.on { background: #1a1a1a; color: #fff; }
-.sa { padding-top: 20rpx; }
-.sbtn { width: 100%; height: 96rpx; background: #1a1a1a; border-radius: 48rpx; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 32rpx; font-weight: 600; }
+.sc { padding: 16rpx 40rpx; border-radius: 40rpx; background: #F2F2F7; font-size: 30rpx; color: #1C1C1E; font-weight: 600; }
+.sc.on { background: #000000; color: #FFFFFF; }
+.sa { padding-top: 32rpx; }
 </style>
