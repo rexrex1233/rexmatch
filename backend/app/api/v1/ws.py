@@ -50,13 +50,14 @@ async def ws_chat(
                 match_id = data.get("match_id")
                 content = data.get("content", "").strip()
                 m_type = data.get("msg_type", "text")
+                reply_to_id = data.get("reply_to_id")
                 if not match_id or not content:
                     continue
 
                 async with async_session_factory() as db:
                     try:
                         msg_resp = await chat_service.send_message(
-                            db, user_id, match_id, content, m_type
+                            db, user_id, match_id, content, m_type, reply_to_id
                         )
                         await db.commit()
                     except ValueError as e:
@@ -75,6 +76,10 @@ async def ws_chat(
                             "content": msg_resp.content,
                             "msg_type": msg_resp.msg_type,
                             "is_read": msg_resp.is_read,
+                            "is_recalled": msg_resp.is_recalled,
+                            "reply_to_id": msg_resp.reply_to_id,
+                            "reply_to_content": msg_resp.reply_to_content,
+                            "reply_to_sender_id": msg_resp.reply_to_sender_id,
                             "created_at": msg_resp.created_at.isoformat(),
                         },
                     }

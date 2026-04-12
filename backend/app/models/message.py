@@ -19,6 +19,13 @@ class Message(Base):
         String(20), default="text", comment="text/image/system"
     )
     is_read: Mapped[bool] = mapped_column(default=False, comment="是否已读")
+    is_recalled: Mapped[bool] = mapped_column(default=False, comment="是否已撤回")
+    recalled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="撤回时间")
+    is_deleted_for_sender: Mapped[bool] = mapped_column(default=False, comment="发送者已删除")
+    is_deleted_for_receiver: Mapped[bool] = mapped_column(default=False, comment="接收者已删除")
+    reply_to_id: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="引用消息ID")
+    reply_to_content: Mapped[str | None] = mapped_column(Text, nullable=True, comment="引用消息内容快照")
+    reply_to_sender_id: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="引用消息发送者ID")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

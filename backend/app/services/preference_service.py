@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.preference import UserPreference
-from app.models.profile import Profile
+from app.models.user import User
 from app.models.interest import UserInterest
 from app.schemas.preference import PreferenceUpdate, PreferenceResponse, CompatibilityInfo
 
@@ -87,7 +87,7 @@ async def update_preference(db: AsyncSession, user_id: int, data: PreferenceUpda
 async def calculate_compatibility(
     db: AsyncSession,
     viewer_id: int,
-    target_profile: Profile,
+    target_user: User,
     target_age: Optional[int],
     target_interest_names: list[str],
 ) -> CompatibilityInfo:
@@ -102,28 +102,24 @@ async def calculate_compatibility(
 
     matched = []
 
-    if pref.preferred_gender and target_profile.gender == pref.preferred_gender:
-        gender_label = "男生" if target_profile.gender == 1 else "女生"
+    if pref.preferred_gender and target_user.gender == pref.preferred_gender:
+        gender_label = "男生" if target_user.gender == 1 else "女生"
         matched.append(f"性别: {gender_label}")
 
     if target_age and pref.min_age and pref.max_age:
         if pref.min_age <= target_age <= pref.max_age:
             matched.append(f"年龄: {target_age}岁")
 
-    if pref.preferred_city and target_profile.city:
-        if pref.preferred_city == target_profile.city:
-            matched.append(f"城市: {target_profile.city}")
+    if pref.preferred_city and target_user.city:
+        if pref.preferred_city == target_user.city:
+            matched.append(f"城市: {target_user.city}")
 
-    if pref.preferred_education and target_profile.education:
-        if pref.preferred_education == target_profile.education:
-            matched.append(f"学历: {target_profile.education}")
+    if pref.preferred_education and target_user.education:
+        if pref.preferred_education == target_user.education:
+            matched.append(f"学历: {target_user.education}")
 
     viewer_interests_result = await db.execute(
-        select(UserInterest).where(
-            UserInterest.profile_id == (
-                await db.execute(select(Profile.id).where(Profile.user_id == viewer_id))
-            ).scalar()
-        )
+        select(UserInterest).where(UserInterest.user_id == viewer_id)
     )
     viewer_uis = viewer_interests_result.scalars().all()
     viewer_interest_names = set()

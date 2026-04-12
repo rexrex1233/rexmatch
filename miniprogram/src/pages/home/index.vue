@@ -5,18 +5,15 @@
       <view class="nav-content">
         <text class="nav-title">推荐</text>
         <view class="nav-right">
+          <view class="glass-circle guide-btn" @tap="openGuide">
+            <text class="guide-btn-icon">?</text>
+          </view>
           <view class="glass-pill" v-if="dailyRemaining >= 0">
             <text class="quota-heart">💖</text>
             <text class="quota-num">{{ dailyRemaining }}</text>
           </view>
           <view class="glass-circle" @tap="showFilterPanel = true">
-            <!-- 苹果风格筛选图标 -->
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
-              <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
-              <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
-            </svg>
+            <text class="nav-icon">⊜</text>
           </view>
         </view>
       </view>
@@ -29,30 +26,51 @@
 
     <!-- 卡片容器 -->
     <view class="card-wrap" v-if="currentCard && !loading">
+      
+      <!-- 背面的下一张叠放卡片 -->
+      <view class="card next-card" :style="nextCardStyle" v-if="nextCard">
+        <image class="hero-bg blur-bg" :src="nextCardAvatar" mode="aspectFill" />
+        <view class="hero-fade" pointer-events="none"></view>
+      </view>
+
       <view
-        class="card"
+        class="card active-card"
         :class="{ 'is-expanded': showDetail }"
         :style="cardStyle"
       >
+        <!-- 拦截层：解决微信小程序 scroll-view 吞噬手势的终极方案 -->
+        <view class="gesture-mask" v-if="!showDetail"
+          @touchstart="onHeroTouchStart"
+          @touchmove.stop="onHeroTouchMove"
+          @touchend="onHeroTouchEnd"
+        >
+          <!-- 触控区搬迁至遮罩层 -->
+          <view class="tap-zones">
+            <view class="t-left" @tap.stop="prevPhoto"></view>
+            <view class="t-center" @tap.stop="toggleDetail"></view>
+            <view class="t-right" @tap.stop="nextPhoto"></view>
+          </view>
+        </view>
+
         <!-- 滚动视图 (展开时可滚动) -->
         <scroll-view 
           class="card-scroll" 
           :scroll-y="showDetail" 
           :show-scrollbar="false"
         >
-          <!-- 英雄区域 (Swiper 照片墙 + 毛玻璃渐变) -->
+          <!-- 英雄区域 (照片墙与绝赞分段指示器) -->
           <view class="hero-area">
-            <swiper 
-              class="hero-swiper" 
-              :indicator-dots="displayPhotos.length > 1" 
-              indicator-color="rgba(255,255,255,0.4)" 
-              indicator-active-color="#FFFFFF"
-              :current="0"
-            >
-              <swiper-item v-for="(photo, i) in displayPhotos" :key="i" @tap="!showDetail && toggleDetail()">
-                <image class="hero-bg" :src="photo.url" mode="aspectFill" />
-              </swiper-item>
-            </swiper>
+            <!-- 动态渲染单张封面，比 swiper 具有更高的响应度 -->
+            <transition name="fade-photo">
+              <image :key="currentPhotoIndex" class="hero-bg" :src="displayPhotos[currentPhotoIndex]?.url" mode="aspectFill" />
+            </transition>
+            
+            <!-- Instagram 风格分段指示器 -->
+            <view class="story-indicators" v-if="displayPhotos.length > 1">
+              <view class="s-dash" v-for="(_, i) in displayPhotos" :key="i" :class="{ 's-active': i === currentPhotoIndex }"></view>
+            </view>
+            
+            <!-- 触控区已被提炼至上方的 gesture-mask 层 -->
             
             <!-- 底部柔和阴影，保证文字可读性 -->
             <view class="hero-fade" pointer-events="none"></view>
@@ -81,22 +99,34 @@
               </view>
             </view>
 
-            <!-- 滑动标签 (保持高对比度) -->
-            <view class="swipe-tag like-tag" :style="{ opacity: likeOp }"><text>LIKE</text></view>
-            <view class="swipe-tag nope-tag" :style="{ opacity: nopeOp }"><text>NOPE</text></view>
+            <!-- 极简中文滑动气泡 -->
+            <view class="action-feedback like-feedback" :style="{ opacity: likeOp, transform: `scale(${0.8 + likeOp * 0.2})` }">
+              <view class="f-icon">❤️</view><text>喜欢</text>
+            </view>
+            <view class="action-feedback nope-feedback" :style="{ opacity: nopeOp, transform: `scale(${0.8 + nopeOp * 0.2})` }">
+              <view class="f-icon">✖</view><text>无感</text>
+            </view>
             
+            <!-- 展开时照片左右切换区 -->
+            <view v-if="showDetail && displayPhotos.length > 1" class="detail-photo-nav">
+              <view class="detail-nav-left" @tap.stop="prevPhoto"></view>
+              <view class="detail-nav-right" @tap.stop="nextPhoto"></view>
+            </view>
+
             <!-- 展开时的毛玻璃关闭按钮 -->
             <view class="close-btn glass-morphism" v-if="showDetail" @tap.stop="toggleDetail" :style="{ top: (statusBarHeight + 10) + 'px' }">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              <text class="close-icon">∨</text>
+            </view>
+
+            <!-- 右上角更多按钮 -->
+            <view class="more-btn glass-morphism" @tap.stop="showMoreMenu = true">
+              <text class="more-dots">•••</text>
             </view>
           </view>
 
           <!-- 资料内容区 -->
           <view 
             class="profile-body" 
-            @touchstart="onHeroTouchStart"
-            @touchmove="onHeroTouchMove"
-            @touchend="onHeroTouchEnd"
             @tap="!showDetail && toggleDetail()"
           >
             
@@ -161,11 +191,6 @@
                 </view>
               </view>
 
-              <!-- 举报拉黑 (Apple 风格 Destructive 按钮) -->
-              <view class="d-actions-link">
-                <text class="d-link destructive" @tap.stop="reportUser">举报该用户</text>
-                <text class="d-link destructive" @tap.stop="blockUser">拉黑该用户</text>
-              </view>
               
               <view class="detail-bottom-space"></view>
             </view>
@@ -173,31 +198,33 @@
           </view>
         </scroll-view>
 
-        <!-- 未展开时的向上滑动指示 -->
-        <view class="body-fade-out" v-if="!showDetail" @tap="toggleDetail">
-          <view class="expand-hint glass-morphism-light">
-            <text>上滑查看详细资料</text>
+        <!-- 手势检测层：覆盖资料区域，在 scroll-view 外可正常捕获手势 -->
+        <view class="gesture-zone" v-if="!showDetail"
+          @touchstart="onHeroTouchStart"
+          @touchmove.stop="onHeroTouchMove"
+          @touchend="onHeroTouchEnd"
+          @tap="toggleDetail">
+          <view class="gesture-hint-strip">
+            <view class="expand-hint glass-morphism-light">
+              <text>上滑查看详细资料</text>
+            </view>
           </view>
         </view>
       </view>
       
-      <!-- 右侧悬浮操作栏 (Apple Glassmorphism + SVGs) -->
+      <!-- 右侧悬浮操作栏 (Apple SVGs converted to Data URI for miniprogram compatibility) -->
       <view class="right-actions" :class="{'actions-expanded': showDetail}">
-        <!-- Gift -->
-        <view class="r-btn glass-morphism" @tap.stop="handleGift">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF9500" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>
+        <view class="r-btn r-gift" @tap.stop="handleGift">
+          <image style="width: 44rpx; height: 44rpx;" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23FF9500%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%2012v10H4V12%22%2F%3E%3Cpath%20d%3D%22M2%207h20v5H2z%22%2F%3E%3Cline%20x1%3D%2212%22%20y1%3D%2222%22%20x2%3D%2212%22%20y2%3D%227%22%2F%3E%3Cpath%20d%3D%22M12%207H7.5a2.5%202.5%200%200%201%200-5C11%202%2012%207%2012%207z%22%2F%3E%3Cpath%20d%3D%22M12%207h4.5a2.5%202.5%200%200%200%200-5C13%202%2012%207%2012%207z%22%2F%3E%3C%2Fsvg%3E" />
         </view>
-        <!-- Like -->
-        <view class="r-btn glass-morphism like primary-pop" @tap.stop="animateLike">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="#FF2D55" stroke="#FF2D55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+        <view class="r-btn r-like" @tap.stop="animateLike">
+          <image style="width: 56rpx; height: 56rpx;" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%23FFFFFF%22%20stroke%3D%22%23FFFFFF%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20.84%204.61a5.5%205.5%200%200%200-7.78%200L12%205.67l-1.06-1.06a5.5%205.5%200%200%200-7.78%207.78l1.06%201.06L12%2021.23l7.78-7.78%201.06-1.06a5.5%205.5%200%200%200%200-7.78z%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E" />
         </view>
-        <!-- Later (Bookmark style) -->
-        <view class="r-btn glass-morphism" @tap.stop="handleLater">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+        <view class="r-btn r-later" @tap.stop="handleLater">
+          <image style="width: 44rpx; height: 44rpx;" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23007AFF%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolygon%20points%3D%2212%202%2015.09%208.26%2022%209.27%2017%2014.14%2018.18%2021.02%2012%2017.77%205.82%2021.02%207%2014.14%202%209.27%208.91%208.26%2012%202%22%3E%3C%2Fpolygon%3E%3C%2Fsvg%3E" />
         </view>
-        <!-- Nope (Cross) -->
-        <view class="r-btn glass-morphism" @tap.stop="animateSkip">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <view class="r-btn r-nope" @tap.stop="animateSkip">
+          <image style="width: 40rpx; height: 40rpx;" src="data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231C1C1E%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cline%20x1%3D%2218%22%20y1%3D%226%22%20x2%3D%226%22%20y2%3D%2218%22%3E%3C%2Fline%3E%3Cline%20x1%3D%226%22%20y1%3D%226%22%20x2%3D%2218%22%20y2%3D%2218%22%3E%3C%2Fline%3E%3C%2Fsvg%3E" />
         </view>
       </view>
 
@@ -212,6 +239,30 @@
     </view>
 
     <MatchModal :visible="showMatchModal" @close="closeMatchModal" @chat="goToChat" />
+
+    <!-- 更多操作菜单 -->
+    <view class="mask" v-if="showMoreMenu" @tap="showMoreMenu = false">
+      <view class="sheet more-sheet" @tap.stop>
+        <view class="sheet-handle"></view>
+        <text class="more-sheet-name">{{ currentCard?.nickname }}</text>
+        <view class="more-options">
+          <view class="more-opt" @tap="handleShare">
+            <text class="mo-icon">↗</text>
+            <text class="mo-label">分享给朋友</text>
+          </view>
+          <view class="more-divider"></view>
+          <view class="more-opt" @tap="reportAndClose">
+            <text class="mo-label-red">举报该用户</text>
+          </view>
+          <view class="more-opt" @tap="blockAndClose">
+            <text class="mo-label-red">拉黑该用户</text>
+          </view>
+        </view>
+        <view class="more-cancel" @tap="showMoreMenu = false">
+          <text>取消</text>
+        </view>
+      </view>
+    </view>
 
     <!-- 筛选 (Apple Bottom Sheet Style, Added ScrollView for Fix) -->
     <view class="mask" v-if="showFilterPanel" @tap="showFilterPanel = false">
@@ -246,6 +297,101 @@
       </view>
     </view>
   </view>
+
+  <!-- 新手引导 -->
+  <view class="guide-overlay" v-if="showGuide" @tap="nextGuide">
+    <view class="guide-card" @tap.stop>
+
+      <!-- 步骤指示点 -->
+      <view class="guide-dots">
+        <view class="g-dot" :class="{ active: guideStep === 0 }"></view>
+        <view class="g-dot" :class="{ active: guideStep === 1 }"></view>
+        <view class="g-dot" :class="{ active: guideStep === 2 }"></view>
+      </view>
+
+      <!-- 步骤 0: 卡片操作 -->
+      <view class="guide-step" v-if="guideStep === 0">
+        <text class="guide-emoji">💕</text>
+        <text class="guide-title">欢迎来到推荐</text>
+        <text class="guide-subtitle">为你精选匹配的人，每天更新</text>
+        <view class="guide-rows">
+          <view class="guide-row">
+            <view class="guide-row-icon"><text>👈</text></view>
+            <view class="guide-row-text">
+              <text class="gr-name">上一张照片</text>
+              <text class="gr-hint">点击卡片左侧区域</text>
+            </view>
+          </view>
+          <view class="guide-row">
+            <view class="guide-row-icon"><text>👉</text></view>
+            <view class="guide-row-text">
+              <text class="gr-name">下一张照片</text>
+              <text class="gr-hint">点击卡片右侧区域</text>
+            </view>
+          </view>
+          <view class="guide-row">
+            <view class="guide-row-icon"><text>☝️</text></view>
+            <view class="guide-row-text">
+              <text class="gr-name">查看详细资料</text>
+              <text class="gr-hint">点击或上滑卡片底部</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 步骤 1: 右侧按钮 -->
+      <view class="guide-step" v-if="guideStep === 1">
+        <text class="guide-emoji">✨</text>
+        <text class="guide-title">快捷操作</text>
+        <text class="guide-subtitle">右侧悬浮按钮，一键操作</text>
+        <view class="guide-actions">
+          <view class="guide-action-row">
+            <view class="ga-btn ga-gift"><text class="ga-icon-text">🎁</text></view>
+            <view class="ga-info">
+              <text class="ga-name">送礼物</text>
+              <text class="ga-hint">即将上线</text>
+            </view>
+          </view>
+          <view class="guide-action-row">
+            <view class="ga-btn ga-like"><text class="ga-icon-text">❤️</text></view>
+            <view class="ga-info">
+              <text class="ga-name">喜欢</text>
+              <text class="ga-hint">双方互相喜欢即匹配</text>
+            </view>
+          </view>
+          <view class="guide-action-row">
+            <view class="ga-btn ga-later"><text class="ga-icon-text">🔖</text></view>
+            <view class="ga-info">
+              <text class="ga-name">稍后再看</text>
+              <text class="ga-hint">收藏感兴趣的人</text>
+            </view>
+          </view>
+          <view class="guide-action-row">
+            <view class="ga-btn ga-nope-btn"><text class="ga-nope">✕</text></view>
+            <view class="ga-info">
+              <text class="ga-name">跳过</text>
+              <text class="ga-hint">不感兴趣，换下一位</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 步骤 2: 出发 -->
+      <view class="guide-step" v-if="guideStep === 2">
+        <text class="guide-emoji">🚀</text>
+        <text class="guide-title">一切就绪</text>
+        <text class="guide-subtitle">完善资料可大幅提升匹配率</text>
+        <view class="guide-tip-box">
+          <text class="guide-tip">💡 上传真实照片 + 填写兴趣标签，匹配率提升 85%</text>
+        </view>
+      </view>
+
+      <view class="guide-next-btn" @tap="nextGuide">
+        <text>{{ guideStep < 2 ? '继续 →' : '开始匹配 →' }}</text>
+      </view>
+    </view>
+  </view>
+
 </template>
 
 <script setup lang="ts">
@@ -278,9 +424,25 @@ const displayPhotos = computed(() => {
 })
 
 // 动画与交互状态
+const currentPhotoIndex = ref(0)
 const isAnimating = ref(false)
 const showDetail = ref(false)
 const dailyRemaining = ref(-1)
+
+function prevPhoto() {
+  if (currentPhotoIndex.value > 0) {
+    currentPhotoIndex.value--
+  }
+}
+
+function nextPhoto() {
+  if (currentPhotoIndex.value < displayPhotos.value.length - 1) {
+    currentPhotoIndex.value++
+  } else {
+    toggleDetail()
+  }
+}
+
 const dailyLimit = ref(10)
 
 const touchStartX = ref(0)
@@ -289,22 +451,65 @@ const isSwiping = ref(false)
 const cardOffsetX = ref(0)
 const cardOffsetY = ref(0)
 const cardRotate = ref(0)
+const cardRotateY = ref(0)
 const cardOpacity = ref(1)
 const THRESHOLD = 80
 
+const nextCard = computed(() => currentIndex.value + 1 < cards.value.length ? cards.value[currentIndex.value + 1] : null)
+const nextCardAvatar = computed(() => {
+  if (!nextCard.value) return defaultAvatar
+  if (nextCard.value.all_photos?.length > 0) return nextCard.value.all_photos[0].url
+  if (nextCard.value.photos?.length > 0) {
+    const p = nextCard.value.photos[0]
+    return typeof p === 'string' ? p : p.url
+  }
+  return nextCard.value.avatar_url || defaultAvatar
+})
+
 const likeOp = computed(() => Math.min(Math.max(cardOffsetX.value / THRESHOLD, 0), 1))
 const nopeOp = computed(() => Math.min(Math.max(-cardOffsetX.value / THRESHOLD, 0), 1))
+
+// 主卡片样式
 const cardStyle = computed(() => {
-  if (cardOffsetX.value === 0 && cardOffsetY.value === 0 && cardOpacity.value === 1 && !showDetail.value) return ''
-  // 苹果风格的弹性过渡动画 (Spring-like transition)
+  if (cardOffsetX.value === 0 && cardOffsetY.value === 0 && cardOpacity.value === 1 && !showDetail.value) return 'z-index: 2;'
   const transition = isSwiping.value ? 'none' : 'all 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
-  return `transform:translate(${cardOffsetX.value}px, ${cardOffsetY.value}px) rotate(${cardRotate.value}deg) scale(${isSwiping.value ? 0.98 : 1}); opacity:${cardOpacity.value}; transition:${transition};`
+  return `z-index: 2; transform:translate(${cardOffsetX.value}px, ${cardOffsetY.value}px) rotateZ(${cardRotate.value}deg) rotateY(${cardRotateY.value}deg) scale(${isSwiping.value ? 0.98 : 1}); opacity:${cardOpacity.value}; transition:${transition};`
 })
+
+// 背景叠堆卡片样式 (跟随滑动拉近和清晰)
+const nextCardStyle = computed(() => {
+  const progress = Math.min(Math.abs(cardOffsetX.value) / 150, 1)
+  const scale = 0.94 + (0.06 * progress)
+  const ty = 40 - (40 * progress)
+  const blur = 6 - (6 * progress)
+  const transition = isSwiping.value ? 'none' : 'all 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+  return `z-index: 1; transform: scale(${scale}) translateY(${ty}rpx); filter: blur(${blur}px); opacity: ${0.6 + (0.4*progress)}; transition: ${transition};`
+})
+
+const showGuide = ref(false)
+const guideStep = ref(0)
+
+function openGuide() {
+  guideStep.value = 0
+  showGuide.value = true
+}
+
+function nextGuide() {
+  if (guideStep.value < 2) {
+    guideStep.value++
+  } else {
+    showGuide.value = false
+    uni.setStorageSync('home_guide_seen', '1')
+  }
+}
 
 onMounted(() => {
   statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 44
   loadRecommendations()
   fetchDailyLikes()
+  if (!uni.getStorageSync('home_guide_seen')) {
+    setTimeout(() => { showGuide.value = true }, 800)
+  }
 })
 
 onShow(() => { 
@@ -330,9 +535,11 @@ function onHeroTouchMove(e: any) {
   const dx = e.touches[0].clientX - touchStartX.value
   const dy = e.touches[0].clientY - touchStartY.value
   
-  // 上滑超过一定距离，展开详情 (增加一点阻尼感)
+  // 上滑超过一定距离，展开详情 (dy负数代表向上)
   if (!isSwiping.value && dy < -40 && Math.abs(dy) > Math.abs(dx)) {
     toggleDetail()
+    // 防止连续触发
+    touchStartY.value = e.touches[0].clientY 
     return
   }
 
@@ -340,10 +547,11 @@ function onHeroTouchMove(e: any) {
     isSwiping.value = true
   }
   if (isSwiping.value) { 
-    // 加入阻尼效果，让滑动感觉更有重量
+    // 加入阻尼效果与真实的 3D 重力翻转感
     const dampening = 0.8
     cardOffsetX.value = dx * dampening
     cardRotate.value = (dx * 0.03) * dampening
+    cardRotateY.value = (dx * 0.08) * dampening 
   }
 }
 
@@ -351,6 +559,7 @@ function onHeroTouchEnd() {
   if (!isSwiping.value) { 
     cardOffsetX.value = 0
     cardRotate.value = 0
+    cardRotateY.value = 0
     return 
   }
   isSwiping.value = false
@@ -359,6 +568,7 @@ function onHeroTouchEnd() {
   else { 
     cardOffsetX.value = 0
     cardRotate.value = 0 
+    cardRotateY.value = 0
   }
 }
 
@@ -383,16 +593,20 @@ function animateSkip() {
   setTimeout(() => { handleSkip(); resetCard() }, 400) 
 }
 
-function handleLater() {
+async function handleLater() {
   if (isAnimating.value) return
   isAnimating.value = true
   showDetail.value = false
-  cardOffsetY.value = 800 // 向下滑出屏幕
+  cardOffsetY.value = 800
   cardOpacity.value = 0
-  setTimeout(() => {
+  const uid = currentCard.value?.user_id
+  setTimeout(async () => {
     currentIndex.value++
     showNext()
     resetCard()
+    if (uid) {
+      try { await matchApi.addBookmark(uid) } catch {}
+    }
   }, 400)
 }
 
@@ -402,9 +616,11 @@ function handleGift() {
 
 function resetCard() { 
   isSwiping.value = true
+  currentPhotoIndex.value = 0
   cardOffsetX.value = 0
   cardOffsetY.value = 0
   cardRotate.value = 0
+  cardRotateY.value = 0
   cardOpacity.value = 1
   setTimeout(() => { 
     isSwiping.value = false
@@ -470,7 +686,29 @@ async function handleSkip() {
     await matchApi.swipe(currentCard.value.user_id, false)
   } catch {}
   currentIndex.value++
-  showNext() 
+  showNext()
+}
+
+const showMoreMenu = ref(false)
+
+function handleShare() {
+  showMoreMenu.value = false
+  uni.showToast({ title: '分享功能即将上线', icon: 'none' })
+}
+
+function handleLaterAndClose() {
+  showMoreMenu.value = false
+  handleLater()
+}
+
+function reportAndClose() {
+  showMoreMenu.value = false
+  reportUser()
+}
+
+function blockAndClose() {
+  showMoreMenu.value = false
+  blockUser()
 }
 
 function reportUser() {
@@ -518,6 +756,15 @@ function goToChat() {
 function goEditProfile() { uni.navigateTo({ url: '/pages/edit-profile/index' }) }
 function resetFilters() { filterGender.value = null; filterAge.value = null }
 function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
+
+const expandTouchStartY = ref(0)
+function onExpandTouchStart(e: any) {
+  expandTouchStartY.value = e.touches[0].clientY
+}
+function onExpandTouchMove(e: any) {
+  const dy = e.touches[0].clientY - expandTouchStartY.value
+  if (dy < -30) toggleDetail()
+}
 </script>
 
 <style scoped>
@@ -586,6 +833,7 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
   position: relative;
   z-index: 5;
   padding: 0 16rpx; /* 外层留白 */
+  perspective: 1200px; /* 激活 3D 景深 */
 }
 
 .card { 
@@ -607,7 +855,15 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .card.is-expanded { bottom: -50px; }
 /* #endif */
 
+.next-card { pointer-events: none; }
+.blur-bg { filter: brightness(0.8); }
+
 .card-scroll { width: 100%; height: 100%; }
+
+/* 专门阻断 scroll-view 吞手势的超级透明层 */
+.gesture-mask {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20;
+}
 
 /* ====== 英雄区域 (照片) ====== */
 .hero-area {
@@ -622,7 +878,21 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
   height: 65vh;
 }
 .hero-swiper { width: 100%; height: 100%; }
+
+/* 相册墙替换逻辑 */
+.fade-photo-enter-active, .fade-photo-leave-active { transition: opacity 0.3s; }
+.fade-photo-enter-from, .fade-photo-leave-to { opacity: 0; }
 .hero-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+.story-indicators { position: absolute; top: 16rpx; left: 16rpx; right: 16rpx; display: flex; gap: 8rpx; z-index: 30; }
+.s-dash { flex: 1; height: 6rpx; border-radius: 4rpx; background: rgba(255,255,255,0.4); }
+.s-dash.s-active { background: #FFFFFF; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.5); }
+
+.tap-zones { position: absolute; top: 40rpx; bottom: 360rpx; left: 0; right: 0; display: flex; z-index: 25; }
+.t-left { width: 40%; }
+.t-center { width: 20%; }
+.t-right { width: 40%; }
+
 .hero-fade { 
   position: absolute; bottom: 0; left: 0; right: 0; height: 360rpx; 
   background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.7) 100%); 
@@ -672,10 +942,40 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .divider { color: rgba(0,0,0,0.3) !important; font-size: 24rpx; }
 .text-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ====== 悬浮滑动标签 ====== */
-.swipe-tag { position: absolute; top: 120rpx; z-index: 50; padding: 12rpx 40rpx; border-radius: 16rpx; border: 8rpx solid; font-size: 64rpx; font-weight: 900; letter-spacing: 4rpx; pointer-events: none; }
-.like-tag { left: 40rpx; color: #34C759; border-color: #34C759; transform: rotate(-15deg); }
-.nope-tag { right: 40rpx; color: #FF3B30; border-color: #FF3B30; transform: rotate(15deg); }
+/* ====== 渐变气泡滑动提示 (Action Feedback) ====== */
+.action-feedback {
+  position: absolute; top: 120rpx;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 160rpx; height: 160rpx;
+  border-radius: 50%;
+  pointer-events: none; z-index: 50;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.action-feedback text { font-size: 26rpx; font-weight: 800; margin-top: 12rpx; letter-spacing: 2rpx; }
+.f-icon { font-size: 64rpx; line-height: 1; }
+
+.like-feedback { 
+  left: 60rpx; background: rgba(255,45,85,0.15); border: 2rpx solid rgba(255,45,85,0.4); 
+  color: #FF2D55; text-shadow: 0 2rpx 8rpx rgba(255,45,85,0.3);
+}
+.nope-feedback { 
+  right: 60rpx; background: rgba(28,28,30,0.15); border: 2rpx solid rgba(0,0,0,0.2); 
+  color: #1C1C1E; text-shadow: 0 2rpx 8rpx rgba(255,255,255,0.5);
+}
+
+.detail-photo-nav {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 100%;
+  display: flex;
+  pointer-events: none;
+  z-index: 5;
+}
+.detail-nav-left, .detail-nav-right {
+  flex: 1;
+  height: 100%;
+  pointer-events: auto;
+}
 
 .close-btn {
   position: absolute;
@@ -746,48 +1046,97 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .destructive { color: #FF3B30; }
 .detail-bottom-space { height: 120rpx; }
 
-/* ====== 向上滑动指示 ====== */
-.body-fade-out {
+/* ====== 手势检测层（覆盖整个资料区，scroll-view 外） ====== */
+.gesture-zone {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 45vh;
+  z-index: 20;
+}
+.gesture-hint-strip {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   height: 140rpx;
   background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 80%);
   display: flex; align-items: flex-end; justify-content: center;
   padding-bottom: 24rpx;
-  z-index: 20;
 }
-.expand-hint { 
-  padding: 12rpx 32rpx; border-radius: 40rpx; 
-}
+.expand-hint { padding: 12rpx 32rpx; border-radius: 40rpx; }
 .expand-hint text { font-size: 24rpx; color: #1C1C1E; font-weight: 600; }
 
 /* ====== 右侧悬浮操作栏 (Apple Layout & SVG Icons) ====== */
 .right-actions {
-  position: absolute;
-  right: 24rpx;
-  bottom: 200rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 32rpx;
-  z-index: 100;
-  transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  position: absolute; right: 20rpx; bottom: 220rpx;
+  display: flex; flex-direction: column; align-items: center; gap: 24rpx;
+  z-index: 100; transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .right-actions.actions-expanded {
-  bottom: 100rpx;
-  transform: scale(0.9);
-  opacity: 0.5;
+  bottom: 120rpx; transform: scale(0.9); opacity: 0.5;
 }
 .r-btn {
-  width: 96rpx; height: 96rpx;
-  border-radius: 50%;
+  width: 84rpx; height: 84rpx; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.1);
+  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.2s ease;
+  background: linear-gradient(135deg, rgba(250,250,255,0.95), rgba(230,230,235,0.85));
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  box-shadow: 
+    -2rpx -2rpx 8rpx rgba(255, 255, 255, 1) inset, 
+    4rpx 4rpx 10rpx rgba(0, 0, 0, 0.1) inset,
+    0 12rpx 24rpx rgba(0, 0, 0, 0.15),
+    0 4rpx 8rpx rgba(0, 0, 0, 0.08); /* 3D Glass Layering */
+  border: 1rpx solid rgba(255, 255, 255, 0.9);
 }
-.r-btn:active { transform: scale(0.85); }
-.r-btn.like { width: 120rpx; height: 120rpx; margin: 10rpx 0; } 
-.primary-pop { border: 2rpx solid #FF2D55; }
+.r-btn:active { 
+  transform: scale(0.85); 
+  box-shadow: -2rpx -2rpx 8rpx rgba(255, 255, 255, 0.8) inset, 4rpx 4rpx 14rpx rgba(0, 0, 0, 0.2) inset, 0 4rpx 12rpx rgba(0, 0, 0, 0.1); 
+}
+.r-btn image { filter: drop-shadow(0 4rpx 6rpx rgba(0,0,0,0.15)); }
+
+/* The Like button is bigger and distinct, 3D Ruby Red */
+.r-btn.r-like { 
+  width: 104rpx; height: 104rpx; margin: 6rpx 0; 
+  background: linear-gradient(135deg, #FF6B8B, #FF2D55); 
+  box-shadow: 
+    -2rpx -2rpx 12rpx rgba(255, 200, 215, 0.9) inset, 
+    4rpx 4rpx 14rpx rgba(180, 0, 30, 0.6) inset,
+    0 16rpx 40rpx rgba(255, 45, 85, 0.4),
+    0 6rpx 12rpx rgba(255, 45, 85, 0.2); 
+  border: 1rpx solid rgba(255, 140, 160, 0.7);
+}
+.r-btn.r-like:active { 
+  box-shadow: -2rpx -2rpx 8rpx rgba(255, 200, 215, 0.8) inset, 4rpx 4rpx 16rpx rgba(180, 0, 30, 0.7) inset, 0 8rpx 20rpx rgba(255, 45, 85, 0.3); 
+}
+.r-btn.r-like image { filter: drop-shadow(0 6rpx 10rpx rgba(180, 0, 30, 0.7)); }
+.nav-icon { font-size: 36rpx; color: #000; line-height: 1; }
+
+/* ====== 右上角更多按钮 ====== */
+.more-btn {
+  position: absolute;
+  top: 24rpx; right: 24rpx;
+  width: 64rpx; height: 64rpx;
+  border-radius: 50%;
+  z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+}
+.more-dots { font-size: 22rpx; color: #fff; letter-spacing: 2rpx; font-weight: 700; line-height: 1; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+/* ====== 更多菜单 ====== */
+.more-sheet { padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+.more-sheet-name { font-size: 28rpx; color: #8E8E93; font-weight: 500; text-align: center; display: block; margin-bottom: 32rpx; }
+.more-options { background: #F2F2F7; border-radius: 28rpx; overflow: hidden; margin-bottom: 16rpx; }
+.more-opt { display: flex; align-items: center; gap: 20rpx; padding: 36rpx 40rpx; background: #fff; border-bottom: 1rpx solid #F2F2F7; }
+.more-opt:last-child { border-bottom: none; }
+.mo-icon { font-size: 36rpx; width: 48rpx; text-align: center; }
+.mo-label { font-size: 32rpx; color: #1C1C1E; font-weight: 500; }
+.mo-label-red { font-size: 32rpx; color: #FF3B30; font-weight: 500; }
+.more-divider { height: 12rpx; background: #F2F2F7; }
+.more-cancel {
+  background: #fff; border-radius: 28rpx;
+  padding: 36rpx; text-align: center;
+}
+.more-cancel text { font-size: 32rpx; color: #1C1C1E; font-weight: 600; }
+.guide-btn-icon { font-size: 30rpx; font-weight: 800; color: #000; line-height: 1; }
+.close-icon { font-size: 40rpx; color: #000; font-weight: 700; line-height: 1; }
 
 /* ====== 骨架与空状态 ====== */
 .sk { flex: 1; margin: 0 16rpx 16rpx; border-radius: 48rpx; overflow: hidden; }
@@ -820,4 +1169,82 @@ function applyFilters() { showFilterPanel.value = false; loadRecommendations() }
 .sc { padding: 16rpx 40rpx; border-radius: 40rpx; background: #F2F2F7; font-size: 30rpx; color: #1C1C1E; font-weight: 600; }
 .sc.on { background: #000000; color: #FFFFFF; }
 .sa { padding-top: 32rpx; padding-bottom: 20rpx; }
+
+/* ====== 新手引导 ====== */
+.guide-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40rpx;
+}
+.guide-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 48rpx;
+  padding: 56rpx 48rpx 48rpx;
+  box-shadow: 0 32rpx 80rpx rgba(0,0,0,0.3);
+}
+.guide-dots {
+  display: flex; gap: 12rpx; justify-content: center; margin-bottom: 48rpx;
+}
+.g-dot {
+  width: 14rpx; height: 14rpx; border-radius: 50%;
+  background: #E5E5EA;
+  transition: all 0.3s;
+}
+.g-dot.active { width: 40rpx; border-radius: 8rpx; background: #000; }
+.guide-step { display: flex; flex-direction: column; align-items: center; }
+.guide-emoji { font-size: 96rpx; margin-bottom: 24rpx; }
+.guide-title { font-size: 52rpx; font-weight: 800; color: #000; letter-spacing: -1rpx; margin-bottom: 12rpx; }
+.guide-subtitle { font-size: 28rpx; color: #8E8E93; font-weight: 500; margin-bottom: 48rpx; text-align: center; }
+
+/* 步骤 0：操作行 */
+.guide-rows { width: 100%; display: flex; flex-direction: column; gap: 24rpx; }
+.guide-row { display: flex; align-items: center; gap: 24rpx; background: #F2F2F7; padding: 28rpx 32rpx; border-radius: 28rpx; }
+.guide-row-icon { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
+.gr-name { font-size: 30rpx; font-weight: 700; color: #000; display: block; }
+.gr-hint { font-size: 24rpx; color: #8E8E93; display: block; margin-top: 4rpx; }
+
+/* 步骤 1：操作按钮列表 */
+.guide-actions { width: 100%; display: flex; flex-direction: column; gap: 20rpx; }
+.guide-action-row { display: flex; align-items: center; gap: 24rpx; }
+.ga-btn {
+  width: 88rpx; height: 88rpx; border-radius: 50%;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.10);
+  border: 1rpx solid rgba(255,255,255,0.6);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ga-icon-text { font-size: 36rpx; line-height: 1; }
+.ga-btn.ga-like { background: rgba(255, 45, 85, 0.12); box-shadow: 0 8rpx 24rpx rgba(255,45,85,0.15); }
+.ga-btn.ga-later { background: rgba(90, 200, 250, 0.12); }
+.ga-btn.ga-nope-btn { background: rgba(142,142,147,0.10); }
+.ga-nope { font-size: 32rpx; color: #8E8E93; font-weight: 700; }
+.ga-name { font-size: 30rpx; font-weight: 700; color: #000; display: block; }
+.ga-hint { font-size: 24rpx; color: #8E8E93; display: block; margin-top: 4rpx; }
+
+/* 步骤 2：提示框 */
+.guide-tip-box {
+  background: #F2F2F7; border-radius: 28rpx;
+  padding: 28rpx 32rpx; width: 100%;
+}
+.guide-tip { font-size: 28rpx; color: #3C3C43; line-height: 1.6; font-weight: 500; }
+
+/* 下一步按钮 */
+.guide-next-btn {
+  margin-top: 48rpx;
+  height: 100rpx; border-radius: 50rpx;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12rpx 32rpx rgba(0,0,0,0.15);
+}
+.guide-next-btn text { font-size: 32rpx; font-weight: 700; color: #fff; letter-spacing: 1rpx; }
 </style>

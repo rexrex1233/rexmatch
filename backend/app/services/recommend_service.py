@@ -5,10 +5,9 @@ from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from app.models.user import User
-from app.models.profile import Profile
 from app.models.photo import Photo
 from app.models.interest import UserInterest
 from app.models.swipe import Swipe
@@ -45,48 +44,46 @@ async def get_recommendations(
     blocked_by_subq = select(Block.blocker_id).where(Block.blocked_id == user_id)
 
     query = (
-        select(Profile)
-        .join(User, User.id == Profile.user_id)
+        select(User)
         .where(
-            Profile.user_id != user_id,
+            User.id != user_id,
             User.status == 1,
-            Profile.is_complete == True,
-            Profile.user_id.not_in(swiped_subq),
-            Profile.user_id.not_in(blocked_subq),
-            Profile.user_id.not_in(blocked_by_subq),
+            User.is_complete == True,
+            User.id.not_in(swiped_subq),
+            User.id.not_in(blocked_subq),
+            User.id.not_in(blocked_by_subq),
         )
     )
 
     if filters.gender is not None:
-        query = query.where(Profile.gender == filters.gender)
+        query = query.where(User.gender == filters.gender)
 
     if filters.city is not None:
-        query = query.where(Profile.city == filters.city)
+        query = query.where(User.city == filters.city)
 
     if filters.min_age is not None or filters.max_age is not None:
         min_birthday, max_birthday = _age_to_birthday_range(filters.min_age, filters.max_age)
         if min_birthday:
-            query = query.where(Profile.birthday >= min_birthday)
+            query = query.where(User.birthday >= min_birthday)
         if max_birthday:
-            query = query.where(Profile.birthday <= max_birthday)
+            query = query.where(User.birthday <= max_birthday)
 
-    # Fetch larger candidate pool for scoring-based reranking
     candidate_limit = max(filters.page_size * 3, 60)
     offset = (filters.page - 1) * filters.page_size
-    query = query.order_by(Profile.updated_at.desc()).limit(candidate_limit)
+    query = query.order_by(User.updated_at.desc()).limit(candidate_limit)
 
     result = await db.execute(query)
-    profiles = result.scalars().all()
+    users = result.scalars().all()
 
     now_utc = datetime.now(timezone.utc)
     new_user_cutoff = now_utc - timedelta(days=NEW_USER_BOOST_DAYS)
 
     scored_cards: list[tuple[float, UserCardResponse]] = []
 
-    for profile in profiles:
+    for user in users:
         photo_result = await db.execute(
             select(Photo)
-            .where(Photo.user_id == profile.user_id)
+            .where(Photo.user_id == user.id)
             .order_by(Photo.sort_order)
         )
         photos = photo_result.scalars().all()
@@ -94,8 +91,7 @@ async def get_recommendations(
         avatar = next((p for p in photos if p.is_avatar), photos[0] if photos else None)
 
         interest_result = await db.execute(
-            select(UserInterest)
-            .where(UserInterest.profile_id == profile.id)
+            select(UserInterest).where(UserInterest.user_id == user.id)
         )
         user_interests = interest_result.scalars().all()
         interest_names = []
@@ -106,15 +102,15 @@ async def get_recommendations(
 
         today = date.today()
         age = None
-        if profile.birthday:
-            age = today.year - profile.birthday.year - (
-                (today.month, today.day) < (profile.birthday.month, profile.birthday.day)
+        if user.birthday:
+            age = today.year - user.birthday.year - (
+                (today.month, today.day) < (user.birthday.month, user.birthday.day)
             )
 
-        online = await is_user_online(profile.user_id)
+        online = await is_user_online(user.id)
 
         compat = await calculate_compatibility(
-            db, user_id, profile, age, interest_names
+            db, user_id, user, age, interest_names
         )
 
         all_photo_infos = [
@@ -122,14 +118,14 @@ async def get_recommendations(
         ]
 
         card = UserCardResponse(
-            user_id=profile.user_id,
-            nickname=profile.nickname,
-            gender=profile.gender,
+            user_id=user.id,
+            nickname=user.nickname or "未知",
+            gender=user.gender or 0,
             age=age,
-            city=profile.city,
-            bio=profile.bio,
-            education=profile.education,
-            occupation=profile.occupation,
+            city=user.city,
+            bio=user.bio,
+            education=user.education,
+            occupation=user.occupation,
             avatar_url=avatar.url if avatar else None,
             photos=[p.url for p in photos],
             all_photos=all_photo_infos,
@@ -143,9 +139,9 @@ async def get_recommendations(
             has_photos=len(photos) > 0,
             photo_count=len(photos),
             is_online=online,
-            has_bio=bool(profile.bio),
-            profile_created=profile.created_at,
-            profile_updated=profile.updated_at,
+            has_bio=bool(user.bio),
+            user_created=user.created_at,
+            user_updated=user.updated_at,
             new_user_cutoff=new_user_cutoff,
         )
 
@@ -165,21 +161,11 @@ def _compute_rank_score(
     photo_count: int,
     is_online: bool,
     has_bio: bool,
-    profile_created: datetime,
-    profile_updated: datetime,
+    user_created: datetime,
+    user_updated: datetime,
     new_user_cutoff: datetime,
 ) -> float:
-    """
-    综合排序分数，权重:
-    - 契合度 (0-100): 权重 3.0
-    - 有照片: +30, 每多一张 +5 (上限 +50)
-    - 在线: +25
-    - 有简介: +10
-    - 新用户加速 (注册 7 天内): +20
-    - 活跃度 (最近更新): +0~15
-    """
     score = 0.0
-
     score += compat_score * 3.0
 
     if has_photos:
@@ -194,11 +180,11 @@ def _compute_rank_score(
     if has_bio:
         score += 10
 
-    created_aware = profile_created.replace(tzinfo=timezone.utc) if profile_created.tzinfo is None else profile_created
+    created_aware = user_created.replace(tzinfo=timezone.utc) if user_created.tzinfo is None else user_created
     if created_aware > new_user_cutoff:
         score += NEW_USER_BOOST_SCORE
 
-    updated_aware = profile_updated.replace(tzinfo=timezone.utc) if profile_updated.tzinfo is None else profile_updated
+    updated_aware = user_updated.replace(tzinfo=timezone.utc) if user_updated.tzinfo is None else user_updated
     now = datetime.now(timezone.utc)
     hours_since_update = (now - updated_aware).total_seconds() / 3600
     if hours_since_update < 1:

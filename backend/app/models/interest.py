@@ -22,11 +22,11 @@ class UserInterest(Base):
     __tablename__ = "user_interests"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    profile_id: Mapped[int] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     interest_id: Mapped[int] = mapped_column(Integer, ForeignKey("interests.id"), nullable=False)
 
-    profile: Mapped["Profile"] = relationship(back_populates="interests")
+    user: Mapped["User"] = relationship(back_populates="interests")
     interest: Mapped["Interest"] = relationship(lazy="selectin")
 
 
-from app.models.profile import Profile  # noqa: E402
+from app.models.user import User  # noqa: E402

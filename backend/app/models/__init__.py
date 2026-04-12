@@ -10,6 +10,7 @@ from app.models.match import Match
 from app.models.message import Message
 from app.models.report import Report, Block
 from app.models.preference import UserPreference
+from app.models.bookmark import Bookmark
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "Report",
     "Block",
     "UserPreference",
+    "Bookmark",
 ]

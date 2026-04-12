@@ -8,7 +8,6 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.user import User
-from app.models.profile import Profile
 
 
 WX_CODE2SESSION_URL = "https://api.weixin.qq.com/sns/jscode2session"
@@ -61,16 +60,11 @@ async def login_or_register(db: AsyncSession, code: str) -> tuple[str, bool]:
 
     if user is None:
         is_new_user = True
-        user = User(openid=openid)
+        user = User(openid=openid, gender=0)
         db.add(user)
         await db.flush()
-
-        profile = Profile(
-            user_id=user.id,
-            nickname=f"用户{user.id}",
-            gender=0,
-        )
-        db.add(profile)
+        # 用 ID 生成默认昵称
+        user.nickname = f"用户{user.id}"
         await db.flush()
 
     access_token = create_access_token(user.id)

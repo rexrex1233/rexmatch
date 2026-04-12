@@ -1,5 +1,5 @@
 """
-匹配 API - 喜欢/跳过、匹配列表
+匹配 API - 喜欢/跳过、匹配列表、收藏
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,9 +8,15 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.config import settings
 from app.models.user import User
+from pydantic import BaseModel
 from app.schemas.common import ResponseBase
 from app.schemas.match import SwipeRequest, SwipeResponse, MatchResponse
-from app.services import match_service
+from app.schemas.user import UserCardResponse
+from app.services import match_service, bookmark_service
+
+
+class BatchUnmatchRequest(BaseModel):
+    match_ids: list[int]
 
 router = APIRouter(prefix="/match", tags=["匹配"])
 
@@ -84,3 +90,46 @@ async def unmatch(
     if not success:
         raise HTTPException(status_code=404, detail="匹配不存在")
     return ResponseBase(message="已解除匹配")
+
+
+@router.post("/unmatch-batch", response_model=ResponseBase[dict])
+async def batch_unmatch(
+    req: BatchUnmatchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """批量解除匹配"""
+    count = await match_service.batch_unmatch(db, current_user.id, req.match_ids)
+    return ResponseBase(data={"unmatched": count})
+
+
+@router.post("/bookmark/{target_user_id}", response_model=ResponseBase)
+async def add_bookmark(
+    target_user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """收藏用户（稍后再看）"""
+    await bookmark_service.add_bookmark(db, current_user.id, target_user_id)
+    return ResponseBase(message="已收藏")
+
+
+@router.delete("/bookmark/{target_user_id}", response_model=ResponseBase)
+async def remove_bookmark(
+    target_user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """取消收藏"""
+    await bookmark_service.remove_bookmark(db, current_user.id, target_user_id)
+    return ResponseBase(message="已取消收藏")
+
+
+@router.get("/bookmarks", response_model=ResponseBase[list[UserCardResponse]])
+async def get_bookmarks(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取收藏列表"""
+    cards = await bookmark_service.get_bookmarks(db, current_user.id)
+    return ResponseBase(data=cards)

@@ -1,7 +1,7 @@
 """
 用户资料 API - 个人信息 CRUD、照片管理、兴趣标签
 """
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -102,6 +102,23 @@ async def update_my_preferences(
     """更新我的择偶偏好"""
     pref = await preference_service.update_preference(db, current_user.id, data)
     return ResponseBase(data=pref)
+
+
+@router.get("/check-nickname", response_model=ResponseBase[dict])
+async def check_nickname(
+    nickname: str = Query(..., min_length=2, max_length=12),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """检查昵称是否可用"""
+    reserved = {"管理员", "admin", "rex", "rexmatch", "系统", "官方"}
+    if nickname.lower() in {r.lower() for r in reserved}:
+        return ResponseBase(data={"available": False, "message": "该昵称已被保留"})
+    available = await user_service.check_nickname_available(db, nickname, exclude_user_id=current_user.id)
+    return ResponseBase(data={
+        "available": available,
+        "message": "昵称可用，很棒的名字！" if available else "该昵称已被使用"
+    })
 
 
 @router.get("/interests/all", response_model=ResponseBase[list[InterestResponse]])

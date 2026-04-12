@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 venv/
 .venv/
+rex_match_app/
+rex-match-app/
 *.egg-info/
 
 # Node

@@ -49,8 +49,12 @@ export const matchApi = {
     api.post('/match/swipe', { target_user_id: targetUserId, is_like: isLike }),
   getMatchList: () => api.get('/match/list'),
   unmatch: (matchId: number) => api.post(`/match/${matchId}/unmatch`),
+  batchUnmatch: (matchIds: number[]) => api.post('/match/unmatch-batch', { match_ids: matchIds }),
   getLikesReceived: () => api.get('/match/likes-received'),
   getDailyLikes: () => api.get('/match/daily-likes'),
+  addBookmark: (targetUserId: number) => api.post(`/match/bookmark/${targetUserId}`),
+  removeBookmark: (targetUserId: number) => api.del(`/match/bookmark/${targetUserId}`),
+  getBookmarks: () => api.get('/match/bookmarks'),
 }
 
 /** 聊天 */
@@ -58,9 +62,15 @@ export const chatApi = {
   getChatList: () => api.get('/chat/list'),
   getMessages: (matchId: number, page = 1) =>
     api.get(`/chat/${matchId}/messages?page=${page}`),
-  sendMessage: (matchId: number, content: string, msgType = 'text') =>
-    api.post('/chat/send', { match_id: matchId, content, msg_type: msgType }),
+  sendMessage: (matchId: number, content: string, msgType = 'text', replyToId?: number) =>
+    api.post('/chat/send', { match_id: matchId, content, msg_type: msgType, ...(replyToId ? { reply_to_id: replyToId } : {}) }),
+  recallMessage: (messageId: number) => api.post(`/chat/${messageId}/recall`),
+  searchChats: (q: string) => api.get(`/chat/search?q=${encodeURIComponent(q)}`),
 }
+
+/** 用户昵称查重 */
+export const checkNickname = (nickname: string) =>
+  api.get(`/users/check-nickname?nickname=${encodeURIComponent(nickname)}`)
 
 /** 举报 */
 export const reportApi = {

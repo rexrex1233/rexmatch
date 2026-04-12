@@ -1,5 +1,5 @@
 """
-匹配服务 - 喜欢/跳过、双向匹配检测
+匹配服务 - 喜欢/跳过、双向匹配检测、批量解除
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func
@@ -8,7 +8,6 @@ from datetime import date, datetime, timezone
 from app.models.swipe import Swipe
 from app.models.match import Match
 from app.models.user import User
-from app.models.profile import Profile
 from app.models.photo import Photo
 from app.models.report import Block
 from app.core.config import settings
@@ -96,10 +95,8 @@ async def get_matches(db: AsyncSession, user_id: int) -> list[dict]:
     for m in matches:
         partner_id = m.user2_id if m.user1_id == user_id else m.user1_id
 
-        profile_result = await db.execute(
-            select(Profile).where(Profile.user_id == partner_id)
-        )
-        partner_profile = profile_result.scalar_one_or_none()
+        user_result = await db.execute(select(User).where(User.id == partner_id))
+        partner = user_result.scalar_one_or_none()
 
         avatar_result = await db.execute(
             select(Photo).where(Photo.user_id == partner_id, Photo.is_avatar == True)
@@ -109,7 +106,7 @@ async def get_matches(db: AsyncSession, user_id: int) -> list[dict]:
         match_list.append({
             "match_id": m.id,
             "user_id": partner_id,
-            "nickname": partner_profile.nickname if partner_profile else "未知",
+            "nickname": partner.nickname if partner else "未知",
             "avatar_url": avatar.url if avatar else None,
             "matched_at": m.matched_at,
         })
@@ -136,11 +133,9 @@ async def get_likes_received(db: AsyncSession, user_id: int) -> list[dict]:
 
     likes = []
     for s in swipes:
-        profile_result = await db.execute(
-            select(Profile).where(Profile.user_id == s.swiper_id)
-        )
-        profile = profile_result.scalar_one_or_none()
-        if not profile:
+        user_result = await db.execute(select(User).where(User.id == s.swiper_id))
+        user = user_result.scalar_one_or_none()
+        if not user or not user.nickname:
             continue
 
         photo_result = await db.execute(
@@ -156,17 +151,17 @@ async def get_likes_received(db: AsyncSession, user_id: int) -> list[dict]:
         from datetime import date as _date
         today = _date.today()
         age = None
-        if profile.birthday:
-            age = today.year - profile.birthday.year - (
-                (today.month, today.day) < (profile.birthday.month, profile.birthday.day)
+        if user.birthday:
+            age = today.year - user.birthday.year - (
+                (today.month, today.day) < (user.birthday.month, user.birthday.day)
             )
 
         likes.append({
             "user_id": s.swiper_id,
-            "nickname": profile.nickname,
-            "gender": profile.gender,
+            "nickname": user.nickname,
+            "gender": user.gender,
             "age": age,
-            "city": profile.city,
+            "city": user.city,
             "avatar_url": avatar.url if avatar else None,
             "liked_at": s.created_at,
         })
@@ -190,3 +185,12 @@ async def unmatch(db: AsyncSession, user_id: int, match_id: int) -> bool:
     match.status = 0
     await db.flush()
     return True
+
+
+async def batch_unmatch(db: AsyncSession, user_id: int, match_ids: list[int]) -> int:
+    """批量解除匹配，返回成功解除数量"""
+    count = 0
+    for match_id in match_ids:
+        if await unmatch(db, user_id, match_id):
+            count += 1
+    return count

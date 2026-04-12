@@ -51,7 +51,7 @@ async def block_user(db: AsyncSession, blocker_id: int, blocked_id: int) -> Bloc
 
 async def get_block_list(db: AsyncSession, user_id: int) -> list[dict]:
     """获取黑名单列表"""
-    from app.models.profile import Profile
+    from app.models.user import User
     from app.models.photo import Photo
 
     result = await db.execute(
@@ -61,15 +61,15 @@ async def get_block_list(db: AsyncSession, user_id: int) -> list[dict]:
 
     items = []
     for b in blocks:
-        profile_r = await db.execute(select(Profile).where(Profile.user_id == b.blocked_id))
-        profile = profile_r.scalar_one_or_none()
+        user_r = await db.execute(select(User).where(User.id == b.blocked_id))
+        user = user_r.scalar_one_or_none()
         avatar_r = await db.execute(
             select(Photo).where(Photo.user_id == b.blocked_id, Photo.is_avatar == True)
         )
         avatar = avatar_r.scalar_one_or_none()
         items.append({
             "user_id": b.blocked_id,
-            "nickname": profile.nickname if profile else "未知用户",
+            "nickname": user.nickname if user else "未知用户",
             "avatar_url": avatar.url if avatar else None,
             "blocked_at": b.created_at,
         })

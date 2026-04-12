@@ -16,6 +16,8 @@ export const useUserStore = defineStore('user', () => {
       token.value = savedToken
       isLoggedIn.value = true
       fetchProfile()
+    } else {
+      uni.reLaunch({ url: '/pages/login/index' })
     }
   }
 
