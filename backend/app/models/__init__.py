@@ -2,7 +2,6 @@
 统一导出所有 ORM 模型，确保 Alembic 能自动发现
 """
 from app.models.user import User
-from app.models.profile import Profile
 from app.models.photo import Photo
 from app.models.interest import Interest, UserInterest
 from app.models.swipe import Swipe
@@ -14,7 +13,6 @@ from app.models.bookmark import Bookmark
 
 __all__ = [
     "User",
-    "Profile",
     "Photo",
     "Interest",
     "UserInterest",
