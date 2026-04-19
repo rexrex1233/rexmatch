@@ -11,6 +11,19 @@ from app.core.config import settings
 from app.api.v1.router import api_v1_router
 
 
+def _run_migrations():
+    """启动时自动执行待跑的 Alembic 迁移"""
+    try:
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        print("✅ 数据库迁移完成")
+    except Exception as e:
+        print(f"⚠️  数据库迁移失败: {e}")
+        raise
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
@@ -18,6 +31,7 @@ async def lifespan(app: FastAPI):
     print(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} 启动中...")
     print(f"   DEBUG={settings.DEBUG}, DB={'SQLite' if 'sqlite' in settings.DATABASE_URL else 'PostgreSQL'}")
     print(f"   S3={'ON' if settings.use_s3 else 'OFF (local uploads)'}")
+    _run_migrations()
     await get_redis()
     yield
     await close_redis()
