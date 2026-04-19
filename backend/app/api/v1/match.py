@@ -103,6 +103,17 @@ async def batch_unmatch(
     return ResponseBase(data={"unmatched": count})
 
 
+@router.post("/inactive-unmatch-batch", response_model=ResponseBase[dict])
+async def inactive_unmatch_batch(
+    req: BatchUnmatchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """沉默清理：解除匹配并将双方标记为可再次推荐（排位靠后）"""
+    count = await match_service.inactive_unmatch_batch(db, current_user.id, req.match_ids)
+    return ResponseBase(data={"unmatched": count})
+
+
 @router.post("/bookmark/{target_user_id}", response_model=ResponseBase)
 async def add_bookmark(
     target_user_id: int,

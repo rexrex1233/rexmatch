@@ -156,11 +156,24 @@
           <text class="batch-header-text">
             {{ selectedIds.size > 0 ? `已选 ${selectedIds.size} 个` : '选择要管理的对话' }}
           </text>
+          <!-- 沉默时间筛选条 -->
+          <scroll-view scroll-x class="inactive-filter-bar" :show-scrollbar="false">
+            <view class="inactive-filter-inner">
+              <view
+                v-for="opt in inactiveFilterOptions"
+                :key="opt.value"
+                :class="['inactive-chip', inactiveFilter === opt.value ? 'chip-active' : '']"
+                @tap="setInactiveFilter(opt.value)"
+              >
+                <text class="inactive-chip-text">{{ opt.label }}</text>
+              </view>
+            </view>
+          </scroll-view>
         </view>
         <view class="chat-list">
           <view
             class="chat-item"
-            v-for="chat in chats"
+            v-for="chat in displayedChats"
             :key="chat.match_id"
             @tap="onChatTap(chat)"
             @longpress="onChatLongPress(chat)"
@@ -201,20 +214,28 @@
 
     <!-- 批量操作底栏 -->
     <view class="batch-action-bar" v-if="batchMode">
-      <view
-        :class="['batch-action-btn', selectedIds.size > 0 ? 'danger' : 'disabled']"
-        @tap="batchUnmatch"
-      >
-        <text class="batch-action-text">
-          解除匹配{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
-        </text>
+      <view class="batch-action-row">
+        <view
+          :class="['batch-action-btn', 'flex-1', selectedIds.size > 0 ? 'danger' : 'disabled']"
+          @tap="batchUnmatch"
+        >
+          <text class="batch-action-text">
+            解除匹配{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+          </text>
+        </view>
+        <view
+          :class="['batch-action-btn', 'flex-1', 'recycle', selectedIds.size > 0 ? 'recycle-active' : 'disabled']"
+          @tap="batchInactiveUnmatch"
+        >
+          <text class="batch-action-text">清理放回推荐池</text>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { chatApi, matchApi } from '../../api'
 
@@ -235,9 +256,38 @@ let searchTimer: any = null
 const batchMode = ref(false)
 const selectedIds = reactive(new Set<number>())
 
+// 沉默时间筛选
+const inactiveFilter = ref<number | null>(null) // 天数，null = 全部
+const inactiveFilterOptions = [
+  { label: '全部', value: null },
+  { label: '7天未聊', value: 7 },
+  { label: '15天未聊', value: 15 },
+  { label: '1个月', value: 30 },
+  { label: '更久', value: 60 },
+]
+
+function setInactiveFilter(value: number | null) {
+  inactiveFilter.value = value
+  selectedIds.clear()
+}
+
+// 根据沉默筛选过滤会话列表
+const displayedChats = computed(() => {
+  if (!batchMode.value || inactiveFilter.value === null) return chats.value
+  const cutoff = Date.now() - inactiveFilter.value * 24 * 60 * 60 * 1000
+  return chats.value.filter((c: any) => {
+    // 从未聊过 或 最后消息时间超过筛选天数
+    if (!c.last_message_at) return true
+    return new Date(c.last_message_at).getTime() < cutoff
+  })
+})
+
 function toggleBatchMode() {
   batchMode.value = !batchMode.value
-  if (!batchMode.value) selectedIds.clear()
+  if (!batchMode.value) {
+    selectedIds.clear()
+    inactiveFilter.value = null
+  }
 }
 
 function onChatTap(chat: any) {
@@ -298,6 +348,31 @@ function batchUnmatch() {
     confirmColor: '#ff4757',
     success(res) {
       if (res.confirm) doUnmatch(ids)
+    }
+  })
+}
+
+async function batchInactiveUnmatch() {
+  if (selectedIds.size === 0) return
+  const ids = Array.from(selectedIds)
+  uni.showModal({
+    title: '清理沉默匹配',
+    content: `将解除选中的 ${ids.length} 个沉默匹配，这些人将有机会再次出现在你的推荐页（排位稍靠后）。`,
+    confirmText: '清理',
+    confirmColor: '#ff6b81',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await matchApi.inactiveUnmatchBatch(ids)
+        chats.value = chats.value.filter((c: any) => !ids.includes(c.match_id))
+        matches.value = matches.value.filter((m: any) => !ids.includes(m.match_id))
+        selectedIds.clear()
+        batchMode.value = false
+        inactiveFilter.value = null
+        uni.showToast({ title: '已清理，他们将重回推荐池', icon: 'none', duration: 2500 })
+      } catch {
+        uni.showToast({ title: '操作失败', icon: 'none' })
+      }
     }
   })
 }
@@ -525,6 +600,19 @@ function formatTime(timeStr: string | null): string {
 .checkbox.checked { background: #ff4757; border-color: #ff4757; }
 .checkbox-check { font-size: 24rpx; color: #fff; font-weight: 700; }
 
+/* 沉默筛选条 */
+.inactive-filter-bar { margin-top: 12rpx; white-space: nowrap; }
+.inactive-filter-inner { display: inline-flex; gap: 12rpx; padding: 4rpx 0 8rpx; }
+.inactive-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10rpx 28rpx; border-radius: 32rpx;
+  border: 2rpx solid #e5e5ea; background: #f7f8fa;
+  transition: all 0.2s;
+}
+.inactive-chip.chip-active { background: linear-gradient(135deg, #ff6b81, #ff4757); border-color: transparent; }
+.inactive-chip-text { font-size: 24rpx; color: #666; }
+.inactive-chip.chip-active .inactive-chip-text { color: #fff; font-weight: 600; }
+
 /* 批量操作底栏 */
 .batch-action-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
@@ -533,14 +621,17 @@ function formatTime(timeStr: string | null): string {
   background: #fff;
   border-top: 1rpx solid #f0f1f5;
 }
+.batch-action-row { display: flex; gap: 16rpx; }
 .batch-action-btn {
   height: 88rpx; border-radius: 44rpx;
   display: flex; align-items: center; justify-content: center;
   transition: opacity 0.2s;
 }
+.flex-1 { flex: 1; }
 .batch-action-btn.danger { background: linear-gradient(135deg, #ff6b81, #ff4757); }
+.batch-action-btn.recycle-active { background: linear-gradient(135deg, #5856d6, #007aff); }
 .batch-action-btn.disabled { background: #e0e0e0; }
-.batch-action-text { font-size: 30rpx; font-weight: 700; color: #fff; }
+.batch-action-text { font-size: 28rpx; font-weight: 700; color: #fff; }
 
 /* ---- 空状态 ---- */
 .empty-state { display: flex; flex-direction: column; align-items: center; padding-top: 240rpx; }

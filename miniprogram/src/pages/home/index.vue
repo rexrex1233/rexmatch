@@ -238,7 +238,7 @@
       <view class="apple-btn" @tap="goEditProfile"><text>完善资料</text></view>
     </view>
 
-    <MatchModal :visible="showMatchModal" @close="closeMatchModal" @chat="goToChat" />
+    <MatchModal :visible="showMatchModal" :matchId="matchedId || 0" @close="closeMatchModal" @go-chat="goToChat" />
 
     <!-- 更多操作菜单 -->
     <view class="mask" v-if="showMoreMenu" @tap="showMoreMenu = false">
@@ -749,9 +749,10 @@ function previewPhotos(i: number) {
 }
 
 function closeMatchModal() { showMatchModal.value = false }
-function goToChat() { 
+function goToChat(matchId?: number) {
   showMatchModal.value = false
-  if (matchedId.value) uni.navigateTo({ url: `/pages/chat-detail/index?matchId=${matchedId.value}` }) 
+  const id = matchId || matchedId.value
+  if (id) uni.navigateTo({ url: `/pages/chat-detail/index?matchId=${id}` })
 }
 function goEditProfile() { uni.navigateTo({ url: '/pages/edit-profile/index' }) }
 function resetFilters() { filterGender.value = null; filterAge.value = null }

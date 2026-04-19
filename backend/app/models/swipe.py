@@ -18,6 +18,9 @@ class Swipe(Base):
     swipe_type: Mapped[str] = mapped_column(
         String(20), default="like", comment="like=普通喜欢 super_like=超级喜欢 nope=跳过"
     )
+    re_eligible: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, comment="沉默清理后标记为可再次推荐"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

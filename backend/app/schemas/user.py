@@ -19,6 +19,15 @@ class ProfileUpdate(BaseModel):
     education: Optional[str] = Field(None, max_length=20)
     occupation: Optional[str] = Field(None, max_length=50)
     income: Optional[str] = Field(None, max_length=30)
+    mbti: Optional[str] = Field(None, max_length=4)
+    hometown: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=50)
+    study_status: Optional[str] = Field(None, max_length=20)
+    industry: Optional[str] = Field(None, max_length=50)
+    marital_status: Optional[str] = Field(None, max_length=20)
+    dating_purpose: Optional[str] = Field(None, max_length=50)
+    dating_rhythm: Optional[str] = Field(None, max_length=50)
+    meeting_scenarios: Optional[str] = Field(None, max_length=255)
     interest_ids: Optional[list[int]] = Field(None, max_length=10)
 
 
@@ -37,6 +46,16 @@ class ProfileResponse(BaseModel):
     education: Optional[str] = None
     occupation: Optional[str] = None
     income: Optional[str] = None
+    mbti: Optional[str] = None
+    hometown: Optional[str] = None
+    school: Optional[str] = None
+    study_status: Optional[str] = None
+    industry: Optional[str] = None
+    marital_status: Optional[str] = None
+    dating_purpose: Optional[str] = None
+    dating_rhythm: Optional[str] = None
+    meeting_scenarios: Optional[str] = None
+    zodiac: Optional[str] = None
     photos: list["PhotoResponse"] = []
     interests: list["InterestResponse"] = []
     is_complete: bool = False
@@ -86,6 +105,16 @@ class UserCardResponse(BaseModel):
     bio: Optional[str] = None
     education: Optional[str] = None
     occupation: Optional[str] = None
+    mbti: Optional[str] = None
+    hometown: Optional[str] = None
+    school: Optional[str] = None
+    study_status: Optional[str] = None
+    industry: Optional[str] = None
+    marital_status: Optional[str] = None
+    dating_purpose: Optional[str] = None
+    dating_rhythm: Optional[str] = None
+    meeting_scenarios: Optional[str] = None
+    zodiac: Optional[str] = None
     avatar_url: Optional[str] = None
     photos: list[str] = []
     all_photos: list[PhotoInfo] = []

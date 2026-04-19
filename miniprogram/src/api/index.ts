@@ -50,6 +50,7 @@ export const matchApi = {
   getMatchList: () => api.get('/match/list'),
   unmatch: (matchId: number) => api.post(`/match/${matchId}/unmatch`),
   batchUnmatch: (matchIds: number[]) => api.post('/match/unmatch-batch', { match_ids: matchIds }),
+  inactiveUnmatchBatch: (matchIds: number[]) => api.post('/match/inactive-unmatch-batch', { match_ids: matchIds }),
   getLikesReceived: () => api.get('/match/likes-received'),
   getDailyLikes: () => api.get('/match/daily-likes'),
   addBookmark: (targetUserId: number) => api.post(`/match/bookmark/${targetUserId}`),

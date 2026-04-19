@@ -21,9 +21,43 @@
         <text class="modal-title fade-up d1">It's a Match!</text>
         <text class="modal-desc fade-up d2">不可思议的缘分，你们相互喜欢了</text>
 
-        <view class="action-group fade-up d3">
-          <button class="apple-btn primary interactive-scale" @tap="$emit('chat')">
-            <text>马上打招呼</text>
+        <!-- 打招呼区域 -->
+        <view class="greeting-area fade-up d3">
+          <!-- 预设打招呼词 -->
+          <scroll-view scroll-x class="preset-scroll" :show-scrollbar="false">
+            <view class="preset-inner">
+              <view
+                v-for="(text, i) in presetGreetings"
+                :key="i"
+                :class="['preset-chip', greetingText === text ? 'preset-chip-active' : '']"
+                @tap="selectPreset(text)"
+              >
+                <text class="preset-chip-text">{{ text }}</text>
+              </view>
+            </view>
+          </scroll-view>
+
+          <!-- 输入框 -->
+          <view class="greeting-input-wrap">
+            <input
+              class="greeting-input"
+              v-model="greetingText"
+              placeholder="输入一句打招呼..."
+              placeholder-class="greeting-ph"
+              maxlength="100"
+              @tap.stop
+            />
+          </view>
+        </view>
+
+        <view class="action-group fade-up d4">
+          <!-- 发送招呼按钮 -->
+          <button
+            :class="['apple-btn', 'primary', 'interactive-scale', greetingText.trim() ? '' : 'primary-dim']"
+            :loading="sending"
+            @tap="sendGreeting"
+          >
+            <text>{{ greetingText.trim() ? '发送招呼 ✉️' : '打个招呼吧' }}</text>
           </button>
           <view class="apple-btn secondary interactive-scale" @tap="$emit('close')">
             <text>继续浏览</text>
@@ -36,19 +70,55 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { chatApi } from '../api/index'
 
-const props = defineProps<{ visible: boolean }>()
-defineEmits(['close', 'chat'])
+const props = defineProps<{ visible: boolean; matchId: number }>()
+const emit = defineEmits(['close', 'go-chat'])
 
 const animating = ref(false)
+const greetingText = ref('')
+const sending = ref(false)
+
+const presetGreetings = [
+  '你好，很高兴认识你！👋',
+  '嗨，我们配得真好！😊',
+  '缘分让我们相遇~',
+  '要不要聊聊？',
+  '期待认识你 ✨',
+]
 
 watch(() => props.visible, (v) => {
   if (v) {
     animating.value = false
+    greetingText.value = ''
+    sending.value = false
     setTimeout(() => { animating.value = true }, 30)
-    uni.vibrateLong({}) // 匹配震动反馈
+    uni.vibrateLong({})
   }
 })
+
+function selectPreset(text: string) {
+  greetingText.value = greetingText.value === text ? '' : text
+}
+
+async function sendGreeting() {
+  const text = greetingText.value.trim()
+  if (!text || sending.value) {
+    // 没有输入内容时，直接跳转聊天
+    emit('go-chat', props.matchId)
+    return
+  }
+  sending.value = true
+  try {
+    await chatApi.sendMessage(props.matchId, text, 'text')
+    emit('go-chat', props.matchId)
+  } catch {
+    uni.showToast({ title: '发送失败，请进入聊天重试', icon: 'none' })
+    emit('go-chat', props.matchId)
+  } finally {
+    sending.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -78,6 +148,7 @@ watch(() => props.visible, (v) => {
   display: flex; align-items: center; justify-content: center;
   position: relative;
   z-index: 10;
+  overflow-y: auto;
 }
 
 /* 动态景深环境光 */
@@ -97,7 +168,7 @@ watch(() => props.visible, (v) => {
 }
 
 /* 匹配飞行特效 */
-.match-hero { position: relative; width: 400rpx; height: 200rpx; margin-bottom: 80rpx; display: flex; justify-content: center; align-items: center; }
+.match-hero { position: relative; width: 400rpx; height: 200rpx; margin-bottom: 60rpx; display: flex; justify-content: center; align-items: center; }
 .avatar-mock { position: absolute; top: 50%; width: 140rpx; height: 140rpx; border-radius: 50%; opacity: 0; border: 6rpx solid #FFF; background: linear-gradient(135deg, #F2F2F7, #E5E5EA); box-shadow: 0 16rpx 48rpx rgba(0,0,0,0.3); z-index: 5; }
 .a-left { left: 0; transform: translate(-200rpx, -50%); }
 .a-right { right: 0; transform: translate(200rpx, -50%); }
@@ -123,23 +194,57 @@ watch(() => props.visible, (v) => {
 
 /* 排版 */
 .modal-title { font-size: 80rpx; font-weight: 900; color: #FFF; text-shadow: 0 8rpx 32rpx rgba(0,0,0,0.4); text-align: center; margin-bottom: 24rpx; letter-spacing: 2rpx; background: linear-gradient(to right, #FFF, #FFE0E6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.modal-desc { font-size: 30rpx; color: rgba(255,255,255,0.8); margin-bottom: 100rpx; text-align: center; font-weight: 500; }
+.modal-desc { font-size: 30rpx; color: rgba(255,255,255,0.8); margin-bottom: 40rpx; text-align: center; font-weight: 500; }
 
 .fade-up { opacity: 0; transform: translateY(40rpx); }
 .card-enter .fade-up { animation: fadeUpIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 .d1 { animation-delay: 0.6s; }
 .d2 { animation-delay: 0.7s; }
-.d3 { animation-delay: 0.8s; }
+.d3 { animation-delay: 0.75s; }
+.d4 { animation-delay: 0.85s; }
 
 @keyframes fadeUpIn { to { opacity: 1; transform: translateY(0); } }
 
+/* 打招呼区域 */
+.greeting-area {
+  width: 100%;
+  margin-bottom: 32rpx;
+}
+
+.preset-scroll { white-space: nowrap; margin-bottom: 20rpx; }
+.preset-inner { display: inline-flex; gap: 12rpx; padding: 4rpx 0; }
+.preset-chip {
+  display: inline-flex; align-items: center; padding: 14rpx 28rpx;
+  border-radius: 40rpx;
+  background: rgba(255,255,255,0.12);
+  border: 2rpx solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(12px);
+  transition: all 0.2s;
+}
+.preset-chip.preset-chip-active {
+  background: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.6);
+}
+.preset-chip-text { font-size: 24rpx; color: rgba(255,255,255,0.9); white-space: nowrap; }
+
+.greeting-input-wrap {
+  background: rgba(255,255,255,0.12);
+  border: 2rpx solid rgba(255,255,255,0.25);
+  border-radius: 24rpx;
+  padding: 20rpx 28rpx;
+  backdrop-filter: blur(12px);
+}
+.greeting-input { font-size: 28rpx; color: #fff; width: 100%; height: 52rpx; }
+.greeting-ph { color: rgba(255,255,255,0.4); font-size: 28rpx; }
+
 /* 按钮组 */
-.action-group { width: 100%; display: flex; flex-direction: column; gap: 32rpx; }
+.action-group { width: 100%; display: flex; flex-direction: column; gap: 24rpx; }
 .interactive-scale { transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1); }
 .interactive-scale:active { transform: scale(0.95); }
 
 .apple-btn { width: 100%; height: 112rpx; border-radius: 56rpx; display: flex; align-items: center; justify-content: center; font-size: 34rpx; font-weight: 800; border: none; }
 .apple-btn::after { border: none; }
 .primary { background: linear-gradient(135deg, #FF2D55, #FF375F); color: #FFF; box-shadow: 0 16rpx 48rpx rgba(255,45,85,0.4); }
+.primary-dim { background: linear-gradient(135deg, rgba(255,45,85,0.6), rgba(255,55,95,0.6)); box-shadow: none; }
 .secondary { background: rgba(255,255,255,0.15); color: #FFF; border: 2rpx solid rgba(255,255,255,0.3); backdrop-filter: blur(20px); }
 </style>

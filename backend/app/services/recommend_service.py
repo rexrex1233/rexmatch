@@ -39,9 +39,21 @@ async def get_recommendations(
     user_id: int,
     filters: DiscoverFilter,
 ) -> list[UserCardResponse]:
-    swiped_subq = select(Swipe.swiped_id).where(Swipe.swiper_id == user_id)
+    # 只排除普通滑动（re_eligible=False），沉默清理后的用户（re_eligible=True）重新进入候选池
+    swiped_subq = select(Swipe.swiped_id).where(
+        Swipe.swiper_id == user_id,
+        Swipe.re_eligible == False,  # noqa: E712
+    )
+    # 记录哪些候选人是被沉默清理放回的，用于评分惩罚
+    re_eligible_subq = select(Swipe.swiped_id).where(
+        Swipe.swiper_id == user_id,
+        Swipe.re_eligible == True,  # noqa: E712
+    )
     blocked_subq = select(Block.blocked_id).where(Block.blocker_id == user_id)
     blocked_by_subq = select(Block.blocker_id).where(Block.blocked_id == user_id)
+
+    re_eligible_result = await db.execute(re_eligible_subq)
+    re_eligible_ids: set[int] = {row[0] for row in re_eligible_result.fetchall()}
 
     query = (
         select(User)
@@ -143,6 +155,7 @@ async def get_recommendations(
             user_created=user.created_at,
             user_updated=user.updated_at,
             new_user_cutoff=new_user_cutoff,
+            previously_matched=user.id in re_eligible_ids,
         )
 
         scored_cards.append((rank_score, card))
@@ -164,9 +177,14 @@ def _compute_rank_score(
     user_created: datetime,
     user_updated: datetime,
     new_user_cutoff: datetime,
+    previously_matched: bool = False,
 ) -> float:
     score = 0.0
     score += compat_score * 3.0
+
+    # 沉默清理放回的用户排位靠后
+    if previously_matched:
+        score -= 40
 
     if has_photos:
         score += 30

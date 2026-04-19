@@ -194,3 +194,45 @@ async def batch_unmatch(db: AsyncSession, user_id: int, match_ids: list[int]) ->
         if await unmatch(db, user_id, match_id):
             count += 1
     return count
+
+
+async def inactive_unmatch_batch(db: AsyncSession, user_id: int, match_ids: list[int]) -> int:
+    """
+    沉默清理：解除匹配并将双方 Swipe 记录标记为 re_eligible=True，
+    使对方可重新出现在推荐池（但排分降低）。
+    返回成功处理的数量。
+    """
+    from sqlalchemy import update as sa_update
+
+    count = 0
+    for match_id in match_ids:
+        result = await db.execute(
+            select(Match).where(
+                Match.id == match_id,
+                Match.status == 1,
+                or_(Match.user1_id == user_id, Match.user2_id == user_id),
+            )
+        )
+        match = result.scalar_one_or_none()
+        if match is None:
+            continue
+
+        partner_id = match.user2_id if match.user1_id == user_id else match.user1_id
+
+        match.status = 0
+
+        # 双方 Swipe 记录均标记为可再推荐
+        await db.execute(
+            sa_update(Swipe)
+            .where(
+                or_(
+                    and_(Swipe.swiper_id == user_id, Swipe.swiped_id == partner_id),
+                    and_(Swipe.swiper_id == partner_id, Swipe.swiped_id == user_id),
+                )
+            )
+            .values(re_eligible=True)
+        )
+        await db.flush()
+        count += 1
+
+    return count
