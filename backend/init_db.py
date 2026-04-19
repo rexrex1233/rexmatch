@@ -1,19 +1,28 @@
 """
-生产环境数据库初始化 - 创建表 + 种子数据
+生产环境数据库初始化 - 运行 Alembic 迁移 + 种子数据
 用法: python init_db.py
 """
 import asyncio
-from app.core.database import engine, Base
-from app.models import *  # noqa: F401,F403 - 确保所有模型被导入
+from alembic.config import Config
+from alembic import command
+
+
+def run_migrations():
+    """通过 Alembic 执行所有待跑的迁移（相当于 alembic upgrade head）"""
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    print("✅ 数据库迁移完成")
+
+
+async def seed():
+    from app.utils.seed_data import seed as _seed
+    await _seed()
+    print("✅ 种子数据完成")
 
 
 async def init():
-    print("🔧 创建数据库表...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✅ 数据库表创建完成")
-
-    from app.utils.seed_data import seed
+    print("🔧 运行数据库迁移...")
+    run_migrations()
     await seed()
     print("✅ 初始化完成")
 
