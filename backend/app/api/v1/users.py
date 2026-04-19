@@ -28,6 +28,23 @@ async def get_my_profile(
     return ResponseBase(data=profile)
 
 
+@router.get("/check-nickname", response_model=ResponseBase[dict])
+async def check_nickname(
+    nickname: str = Query(..., min_length=2, max_length=12),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """检查昵称是否可用"""
+    reserved = {"管理员", "admin", "rex", "rexmatch", "系统", "官方"}
+    if nickname.lower() in {r.lower() for r in reserved}:
+        return ResponseBase(data={"available": False, "message": "该昵称已被保留"})
+    available = await user_service.check_nickname_available(db, nickname, exclude_user_id=current_user.id)
+    return ResponseBase(data={
+        "available": available,
+        "message": "昵称可用，很棒的名字！" if available else "该昵称已被使用"
+    })
+
+
 @router.get("/{user_id}", response_model=ResponseBase[ProfileResponse])
 async def get_user_profile(
     user_id: int,
@@ -102,23 +119,6 @@ async def update_my_preferences(
     """更新我的择偶偏好"""
     pref = await preference_service.update_preference(db, current_user.id, data)
     return ResponseBase(data=pref)
-
-
-@router.get("/check-nickname", response_model=ResponseBase[dict])
-async def check_nickname(
-    nickname: str = Query(..., min_length=2, max_length=12),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """检查昵称是否可用"""
-    reserved = {"管理员", "admin", "rex", "rexmatch", "系统", "官方"}
-    if nickname.lower() in {r.lower() for r in reserved}:
-        return ResponseBase(data={"available": False, "message": "该昵称已被保留"})
-    available = await user_service.check_nickname_available(db, nickname, exclude_user_id=current_user.id)
-    return ResponseBase(data={
-        "available": available,
-        "message": "昵称可用，很棒的名字！" if available else "该昵称已被使用"
-    })
 
 
 @router.get("/interests/all", response_model=ResponseBase[list[InterestResponse]])
